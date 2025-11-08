@@ -1,0 +1,431 @@
+import React, { useEffect, useState, useMemo } from 'react';
+import { getSellers, createSeller, updateSeller, deleteSeller, getSellerLeaderboard } from '../services/api';
+import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
+import Button from '../components/Button';
+import Modal from '../components/Modal';
+import SearchBar from '../components/SearchBar';
+import Pagination from '../components/Pagination';
+import { Plus, Edit, Trash2, Trophy, TrendingUp, Users, Download, Copy, CheckCircle } from 'lucide-react';
+import { exportToExcel, formatForExport } from '../utils/exportUtils';
+import { useToast } from '../context/ToastContext';
+
+const Sellers = () => {
+  const [sellers, setSellers] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSeller, setEditingSeller] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const [credentialsModal, setCredentialsModal] = useState({ isOpen: false, email: '', password: '' });
+  const [copied, setCopied] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
+  const toast = useToast();
+
+  useEffect(() => {
+    fetchSellers();
+    fetchLeaderboard();
+  }, []);
+
+  const fetchSellers = async () => {
+    try {
+      const response = await getSellers();
+      setSellers(response.data);
+    } catch (error) {
+      console.error('Error fetching sellers:', error);
+    }
+  };
+
+  const fetchLeaderboard = async () => {
+    try {
+      const response = await getSellerLeaderboard();
+      setLeaderboard(response.data);
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingSeller) {
+        await updateSeller(editingSeller._id, formData);
+        toast.success(`✅ ${formData.name} updated successfully!`);
+        setIsModalOpen(false);
+        resetForm();
+        fetchSellers();
+        fetchLeaderboard();
+      } else {
+        const response = await createSeller(formData);
+        toast.success(`🎉 ${formData.name} added as seller!`);
+        // Show credentials modal with temporary password
+        setCredentialsModal({
+          isOpen: true,
+          email: response.data.seller.email,
+          password: response.data.temporaryPassword,
+          name: response.data.seller.name
+        });
+        setIsModalOpen(false);
+        resetForm();
+        fetchSellers();
+        fetchLeaderboard();
+      }
+    } catch (error) {
+      console.error('Error saving seller:', error);
+      toast.error(error.response?.data?.message || 'Failed to save seller');
+    }
+  };
+
+  const handleEdit = (seller) => {
+    setEditingSeller(seller);
+    setFormData({
+      name: seller.name,
+      email: seller.email || '',
+      phone: seller.phone || ''
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id) => {
+    const seller = sellers.find(s => s._id === id);
+    if (window.confirm(`Are you sure you want to delete ${seller?.name}?`)) {
+      try {
+        await deleteSeller(id);
+        toast.success(`🗑️ ${seller?.name} removed successfully`);
+        fetchSellers();
+        fetchLeaderboard();
+      } catch (error) {
+        console.error('Error deleting seller:', error);
+        toast.error('Failed to delete seller');
+      }
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({ name: '', email: '', phone: '' });
+    setEditingSeller(null);
+  };
+
+  const handleCopyCredentials = () => {
+    const text = `Login Credentials for ${credentialsModal.name}\nEmail: ${credentialsModal.email}\nPassword: ${credentialsModal.password}`;
+    navigator.clipboard.writeText(text);
+    toast.success('📋 Credentials copied to clipboard!');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const closeCredentialsModal = () => {
+    setCredentialsModal({ isOpen: false, email: '', password: '', name: '' });
+    setCopied(false);
+  };
+
+  // Filter and search sellers
+  const filteredSellers = useMemo(() => {
+    return sellers.filter(seller => 
+      seller.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      seller.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      seller.phone?.includes(searchQuery)
+    );
+  }, [sellers, searchQuery]);
+
+  // Paginate sellers
+  const paginatedSellers = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredSellers.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredSellers, currentPage]);
+
+  const totalPages = Math.ceil(filteredSellers.length / itemsPerPage);
+
+  // Handle export
+  const handleExport = () => {
+    const formattedData = formatForExport(filteredSellers, 'sellers');
+    exportToExcel(formattedData, 'sellers');
+    toast.success(`📊 Exported ${filteredSellers.length} sellers to Excel!`);
+  };
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  const medals = ['🥇', '🥈', '🥉'];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Sellers</h1>
+          <p className="text-gray-600 mt-1">Manage sellers and track commissions</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={handleExport}>
+            <Download size={20} />
+            Export
+          </Button>
+          <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
+            <Plus size={20} />
+            Add Seller
+          </Button>
+        </div>
+      </div>
+
+      {/* Search */}
+      <Card>
+        <CardBody>
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search sellers by name, email, or phone..."
+          />
+          {searchQuery && (
+            <div className="mt-3 text-sm text-gray-600">
+              Found {filteredSellers.length} seller(s)
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      {/* Leaderboard */}
+      <Card className="bg-gradient-to-r from-emerald-50 to-teal-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Trophy className="text-emerald-600" size={24} />
+            Top Sellers
+          </CardTitle>
+        </CardHeader>
+        <CardBody>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {leaderboard.slice(0, 3).map((seller, index) => (
+              <div key={seller._id} className="bg-white p-4 rounded-lg shadow-md">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">{medals[index]}</span>
+                  <div className="flex-1">
+                    <p className="font-bold text-gray-800">{seller.name}</p>
+                    <p className="text-sm text-gray-600">#{index + 1} Seller</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-emerald-600">Rs. {seller.totalCommission.toLocaleString('en-PK', {minimumFractionDigits: 2})}</p>
+                    <p className="text-xs text-gray-500">Commission</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardBody>
+      </Card>
+
+      {/* Sellers Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {searchQuery 
+              ? `Filtered Sellers (${filteredSellers.length})` 
+              : `All Sellers (${sellers.length})`}
+          </CardTitle>
+        </CardHeader>
+        <CardBody className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Commission</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {paginatedSellers.length > 0 ? paginatedSellers.map((seller) => (
+                  <tr key={seller._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <Users size={16} className="text-gray-400" />
+                        <span className="font-medium text-gray-800">{seller.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{seller.email || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{seller.phone || '-'}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1">
+                        <TrendingUp size={14} className="text-emerald-500" />
+                        <span className="font-medium text-emerald-600">Rs. {seller.totalCommission.toLocaleString('en-PK', {minimumFractionDigits: 2})}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <Button variant="secondary" size="sm" onClick={() => handleEdit(seller)}>
+                          <Edit size={16} />
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={() => handleDelete(seller._id)}>
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                      No sellers found. {searchQuery && 'Try adjusting your search.'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {filteredSellers.length > itemsPerPage && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              itemsPerPage={itemsPerPage}
+              totalItems={filteredSellers.length}
+            />
+          )}
+        </CardBody>
+      </Card>
+
+      {/* Add/Edit Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); resetForm(); }}
+        title={editingSeller ? 'Edit Seller' : 'Add New Seller'}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Seller Name</label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+            <input
+              type="email"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="seller@example.com"
+            />
+            {!editingSeller && (
+              <p className="text-xs text-gray-500 mt-1">Used for seller login</p>
+            )}
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          
+          <div className="flex gap-3 mt-6">
+            <Button type="submit" className="flex-1">
+              {editingSeller ? 'Update Seller' : 'Create Seller'}
+            </Button>
+            <Button 
+              type="button" 
+              variant="secondary" 
+              onClick={() => { setIsModalOpen(false); resetForm(); }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Credentials Modal */}
+      <Modal
+        isOpen={credentialsModal.isOpen}
+        onClose={closeCredentialsModal}
+        title="🎉 Seller Created Successfully!"
+      >
+        <div className="space-y-6">
+          {/* Success Message */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-3">
+            <CheckCircle className="text-emerald-600 flex-shrink-0 mt-0.5" size={20} />
+            <div>
+              <p className="text-emerald-900 font-medium">Seller account created!</p>
+              <p className="text-emerald-700 text-sm mt-1">
+                Share these credentials with <strong>{credentialsModal.name}</strong>
+              </p>
+            </div>
+          </div>
+
+          {/* Credentials Display */}
+          <div className="bg-gradient-to-r from-slate-50 to-gray-50 rounded-lg p-6 border border-gray-200">
+            <h3 className="font-bold text-gray-800 mb-4 text-lg">Login Credentials</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
+                <div className="bg-white border border-gray-300 rounded-lg px-4 py-3 font-mono text-gray-800">
+                  {credentialsModal.email}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Temporary Password</label>
+                <div className="bg-white border border-gray-300 rounded-lg px-4 py-3 font-mono text-lg font-bold text-emerald-600">
+                  {credentialsModal.password}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Warning */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <p className="text-amber-900 text-sm">
+              ⚠️ <strong>Important:</strong> This password will only be shown once. 
+              Please copy and share it with the seller securely.
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleCopyCredentials}
+              className="flex-1 flex items-center justify-center gap-2"
+            >
+              {copied ? (
+                <>
+                  <CheckCircle size={18} />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy size={18} />
+                  Copy Credentials
+                </>
+              )}
+            </Button>
+            <Button 
+              variant="secondary"
+              onClick={closeCredentialsModal}
+              className="flex-1"
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+};
+
+export default Sellers;
