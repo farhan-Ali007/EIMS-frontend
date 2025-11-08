@@ -612,7 +612,7 @@ const response = await axios.get(`${API_URL}/products`, {
 
 For issues or questions:
 - Create an issue in the repository
-- Contact: your-email@example.com
+- Contact: farhanali39765500@gmail.com
 
 ---
 
