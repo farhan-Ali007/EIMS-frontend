@@ -19,6 +19,7 @@ const Dashboard = () => {
         getDashboardStats(),
         getChartData()
       ]);
+      
       setStats(statsRes.data);
       setChartData(chartRes.data);
     } catch (error) {
@@ -100,7 +101,7 @@ const Dashboard = () => {
   return (
     <div className="space-y-8">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white mb-8">
+      {/* <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-xl p-8 text-white mb-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
@@ -120,7 +121,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -161,7 +162,7 @@ const Dashboard = () => {
           </CardTitle>
         </CardHeader>
         <CardBody className="p-6">
-          {chartData.length > 0 ? (
+          {chartData && chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={350}>
               <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <defs>
@@ -176,7 +177,7 @@ const Dashboard = () => {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                 <XAxis 
-                  dataKey="_id" 
+                  dataKey="date" 
                   tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}
                   axisLine={{ stroke: '#e5e7eb' }}
                   tickLine={{ stroke: '#e5e7eb' }}
@@ -185,6 +186,7 @@ const Dashboard = () => {
                   tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}
                   axisLine={{ stroke: '#e5e7eb' }}
                   tickLine={{ stroke: '#e5e7eb' }}
+                  domain={[0, 'dataMax + 1000']}
                 />
                 <Tooltip 
                   contentStyle={{ 
@@ -213,8 +215,9 @@ const Dashboard = () => {
                   fillOpacity={1} 
                   fill="url(#colorRevenue)" 
                   name="Revenue (PKR)"
-                  dot={{ fill: '#3b82f6', r: 4 }}
-                  activeDot={{ r: 6 }}
+                  dot={{ fill: '#3b82f6', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 7, strokeWidth: 2, stroke: '#fff' }}
+                  connectNulls={false}
                 />
                 <Area 
                   type="monotone" 
@@ -224,8 +227,9 @@ const Dashboard = () => {
                   fillOpacity={1} 
                   fill="url(#colorOrders)" 
                   name="Orders"
-                  dot={{ fill: '#6366f1', r: 4 }}
-                  activeDot={{ r: 6 }}
+                  dot={{ fill: '#6366f1', r: 5, strokeWidth: 2, stroke: '#fff' }}
+                  activeDot={{ r: 7, strokeWidth: 2, stroke: '#fff' }}
+                  connectNulls={false}
                 />
               </AreaChart>
             </ResponsiveContainer>

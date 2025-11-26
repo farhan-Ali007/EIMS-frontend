@@ -1,6 +1,17 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+let API_URL;
+
+if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+  // Local development
+  API_URL = 'http://localhost:4000/api';
+} else if (typeof window !== 'undefined' && window.location.hostname === 'https://etimad-inventory.up.railway.app') {
+  // Production domain
+  API_URL = 'https://etimad-inventory.up.railway.app/api';
+} else {
+  // Fallback (treat as production)
+  API_URL = 'https://etimad-inventory.up.railway.app/api';
+}
 
 const api = axios.create({
   baseURL: API_URL,
@@ -76,11 +87,38 @@ export const generateInvoice = (id) => `${API_URL}/pdf/invoice/${id}`;
 export const changePassword = (data) => api.put('/auth/change-password', data);
 export const forgotPassword = (email) => axios.post(`${API_URL}/auth/forgot-password`, { email });
 export const resetPassword = (data) => axios.put(`${API_URL}/auth/reset-password`, data);
+export const getInviteCode = () => api.get('/auth/invite-code');
 
 // Categories
 export const getCategories = () => api.get('/categories');
 export const createCategory = (data) => api.post('/categories', data);
 export const updateCategory = (id, data) => api.put(`/categories/${id}`, data);
 export const deleteCategory = (id) => api.delete(`/categories/${id}`);
+
+// Bills
+export const getBills = (params) => api.get('/bills', { params });
+export const getBill = (id) => api.get(`/bills/${id}`);
+export const createBill = (data) => api.post('/bills', data);
+export const updateBillStatus = (id, status) => api.patch(`/bills/${id}/status`, { status });
+export const deleteBill = (id) => api.delete(`/bills/${id}`);
+export const getCustomerHistory = (customerId, params) => api.get(`/bills/customer/${customerId}/history`, { params });
+export const getBillingStats = () => api.get('/bills/stats/overview');
+
+// Expenses
+export const getExpenses = (params) => api.get('/expenses', { params });
+export const createExpense = (data) => api.post('/expenses', data);
+export const getExpenseStats = () => api.get('/expenses/stats/overview');
+
+// Admin management
+export const getAdmins = () => api.get('/admins');
+export const updateAdminRole = (id, role) => api.put(`/admins/${id}/role`, { role });
+
+// Returns
+export const getReturns = (params) => api.get('/returns', { params });
+export const createReturn = (data) => api.post('/returns', data);
+
+// Parcels (PO)
+export const getParcels = (params) => api.get('/parcels', { params });
+export const createParcel = (data) => api.post('/parcels', data);
 
 export default api;

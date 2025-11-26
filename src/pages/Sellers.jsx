@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSellers, createSeller, updateSeller, deleteSeller, getSellerLeaderboard } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
@@ -8,71 +9,84 @@ import Pagination from '../components/Pagination';
 import { Plus, Edit, Trash2, Trophy, TrendingUp, Users, Download, Copy, CheckCircle } from 'lucide-react';
 import { exportToExcel, formatForExport } from '../utils/exportUtils';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 const Sellers = () => {
-  const [sellers, setSellers] = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSeller, setEditingSeller] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [credentialsModal, setCredentialsModal] = useState({ isOpen: false, email: '', password: '' });
+  const [credentialsModal, setCredentialsModal] = useState({ isOpen: false, name: '', password: '' });
   const [copied, setCopied] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
-    phone: ''
+    phone: '',
+    basicSalary: '',
+    commissionRate: ''
   });
   const toast = useToast();
+  const queryClient = useQueryClient();
+  const { role } = useAuth();
 
-  useEffect(() => {
-    fetchSellers();
-    fetchLeaderboard();
-  }, []);
-
-  const fetchSellers = async () => {
-    try {
+  const { data: sellers = [] } = useQuery({
+    queryKey: ['sellers'],
+    queryFn: async () => {
       const response = await getSellers();
-      setSellers(response.data);
-    } catch (error) {
-      console.error('Error fetching sellers:', error);
+      return response.data;
     }
-  };
+  });
 
-  const fetchLeaderboard = async () => {
-    try {
+  const { data: leaderboard = [] } = useQuery({
+    queryKey: ['sellerLeaderboard'],
+    queryFn: async () => {
       const response = await getSellerLeaderboard();
-      setLeaderboard(response.data);
-    } catch (error) {
-      console.error('Error fetching leaderboard:', error);
+      return response.data;
     }
-  };
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editingSeller) {
-        await updateSeller(editingSeller._id, formData);
+        // Only send editable fields (do not override earned commission)
+        const payload = {
+          name: formData.name,
+          phone: formData.phone,
+          basicSalary: formData.basicSalary,
+          commissionRate: formData.commissionRate
+        };
+
+        await updateSeller(editingSeller._id, payload);
         toast.success(`✅ ${formData.name} updated successfully!`);
         setIsModalOpen(false);
         resetForm();
-        fetchSellers();
-        fetchLeaderboard();
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['sellers'] }),
+          queryClient.invalidateQueries({ queryKey: ['sellerLeaderboard'] })
+        ]);
       } else {
-        const response = await createSeller(formData);
+        const payload = {
+          name: formData.name,
+          phone: formData.phone,
+          basicSalary: formData.basicSalary,
+          commissionRate: formData.commissionRate
+        };
+
+        const response = await createSeller(payload);
         toast.success(`🎉 ${formData.name} added as seller!`);
         // Show credentials modal with temporary password
         setCredentialsModal({
           isOpen: true,
-          email: response.data.seller.email,
           password: response.data.temporaryPassword,
           name: response.data.seller.name
         });
         setIsModalOpen(false);
         resetForm();
-        fetchSellers();
-        fetchLeaderboard();
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['sellers'] }),
+          queryClient.invalidateQueries({ queryKey: ['sellerLeaderboard'] })
+        ]);
       }
     } catch (error) {
       console.error('Error saving seller:', error);
@@ -84,8 +98,9 @@ const Sellers = () => {
     setEditingSeller(seller);
     setFormData({
       name: seller.name,
-      email: seller.email || '',
-      phone: seller.phone || ''
+      phone: seller.phone || '',
+      basicSalary: seller.basicSalary ?? '',
+      commissionRate: seller.commissionRate ?? ''
     });
     setIsModalOpen(true);
   };
@@ -96,8 +111,10 @@ const Sellers = () => {
       try {
         await deleteSeller(id);
         toast.success(`🗑️ ${seller?.name} removed successfully`);
-        fetchSellers();
-        fetchLeaderboard();
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['sellers'] }),
+          queryClient.invalidateQueries({ queryKey: ['sellerLeaderboard'] })
+        ]);
       } catch (error) {
         console.error('Error deleting seller:', error);
         toast.error('Failed to delete seller');
@@ -106,12 +123,12 @@ const Sellers = () => {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', email: '', phone: '' });
+    setFormData({ name: '', phone: '', basicSalary: '', commissionRate: '' });
     setEditingSeller(null);
   };
 
   const handleCopyCredentials = () => {
-    const text = `Login Credentials for ${credentialsModal.name}\nEmail: ${credentialsModal.email}\nPassword: ${credentialsModal.password}`;
+    const text = `Login Credentials for ${credentialsModal.name}\nTemporary Password: ${credentialsModal.password}`;
     navigator.clipboard.writeText(text);
     toast.success('📋 Credentials copied to clipboard!');
     setCopied(true);
@@ -119,7 +136,7 @@ const Sellers = () => {
   };
 
   const closeCredentialsModal = () => {
-    setCredentialsModal({ isOpen: false, email: '', password: '', name: '' });
+    setCredentialsModal({ isOpen: false, name: '', password: '' });
     setCopied(false);
   };
 
@@ -127,7 +144,6 @@ const Sellers = () => {
   const filteredSellers = useMemo(() => {
     return sellers.filter(seller => 
       seller.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      seller.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       seller.phone?.includes(searchQuery)
     );
   }, [sellers, searchQuery]);
@@ -180,7 +196,7 @@ const Sellers = () => {
           <SearchBar
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search sellers by name, email, or phone..."
+            placeholder="Search sellers by name or phone..."
           />
           {searchQuery && (
             <div className="mt-3 text-sm text-gray-600">
@@ -234,9 +250,11 @@ const Sellers = () => {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Commission</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Basic Salary</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Commission Rate</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Earned Commission</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -249,12 +267,14 @@ const Sellers = () => {
                         <span className="font-medium text-gray-800">{seller.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{seller.email || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{seller.phone || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">Rs. {(seller.basicSalary ?? 0).toLocaleString('en-PK')}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">Rs. {(seller.commissionRate ?? 0).toLocaleString('en-PK')}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">Rs. {(seller.commission ?? 0).toLocaleString('en-PK')}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
                         <TrendingUp size={14} className="text-emerald-500" />
-                        <span className="font-medium text-emerald-600">Rs. {seller.totalCommission.toLocaleString('en-PK', {minimumFractionDigits: 2})}</span>
+                        <span className="font-medium text-emerald-600">Rs. {(seller.total ?? 0).toLocaleString('en-PK')}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -262,15 +282,17 @@ const Sellers = () => {
                         <Button variant="secondary" size="sm" onClick={() => handleEdit(seller)}>
                           <Edit size={16} />
                         </Button>
-                        <Button variant="danger" size="sm" onClick={() => handleDelete(seller._id)}>
-                          <Trash2 size={16} />
-                        </Button>
+                        {(role === 'admin' || role === 'superadmin') && (
+                          <Button variant="danger" size="sm" onClick={() => handleDelete(seller._id)}>
+                            <Trash2 size={16} />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                       No sellers found. {searchQuery && 'Try adjusting your search.'}
                     </td>
                   </tr>
@@ -307,20 +329,27 @@ const Sellers = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Basic Salary (Rs.)</label>
             <input
-              type="email"
-              required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              type="number"
+              min="0"
+              value={formData.basicSalary}
+              onChange={(e) => setFormData({ ...formData, basicSalary: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="seller@example.com"
             />
-            {!editingSeller && (
-              <p className="text-xs text-gray-500 mt-1">Used for seller login</p>
-            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Commission Rate (per product, Rs.)</label>
+            <input
+              type="number"
+              min="0"
+              value={formData.commissionRate}
+              onChange={(e) => setFormData({ ...formData, commissionRate: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
           
           <div>
@@ -362,7 +391,7 @@ const Sellers = () => {
             <div>
               <p className="text-emerald-900 font-medium">Seller account created!</p>
               <p className="text-emerald-700 text-sm mt-1">
-                Share these credentials with <strong>{credentialsModal.name}</strong>
+                Share this temporary password with <strong>{credentialsModal.name}</strong>
               </p>
             </div>
           </div>
@@ -372,13 +401,6 @@ const Sellers = () => {
             <h3 className="font-bold text-gray-800 mb-4 text-lg">Login Credentials</h3>
             
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
-                <div className="bg-white border border-gray-300 rounded-lg px-4 py-3 font-mono text-gray-800">
-                  {credentialsModal.email}
-                </div>
-              </div>
-              
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Temporary Password</label>
                 <div className="bg-white border border-gray-300 rounded-lg px-4 py-3 font-mono text-lg font-bold text-emerald-600">

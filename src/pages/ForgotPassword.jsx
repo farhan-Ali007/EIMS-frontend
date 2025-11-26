@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, AlertCircle, CheckCircle, Key, Copy, Check } from 'lucide-react';
 import { forgotPassword } from '../services/api';
+import { useToast } from '../context/ToastContext';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -10,6 +11,7 @@ const ForgotPassword = () => {
   const [resetToken, setResetToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { showToast } = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,14 +23,27 @@ const ForgotPassword = () => {
     try {
       const response = await forgotPassword(email);
       
+      // Check if backend actually sent the email successfully
+      if (response.data.success === false) {
+        // Email sending failed on backend
+        const errorMsg = response.data.message || 'Email could not be sent. Please try again or contact support.';
+        setError(errorMsg);
+        showToast(errorMsg, 'error');
+        return;
+      }
+      
+      // Success!
       setSuccess(true);
+      showToast('✅ Password reset email sent successfully!', 'success');
       
       // In development, show the token (in production this would be emailed)
       if (response.data.resetToken) {
         setResetToken(response.data.resetToken);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to process request');
+      const errorMsg = err.response?.data?.message || 'Failed to send reset email. Please check your internet connection.';
+      setError(errorMsg);
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
@@ -38,9 +53,11 @@ const ForgotPassword = () => {
     try {
       await navigator.clipboard.writeText(resetToken);
       setCopied(true);
+      showToast('📋 Token copied to clipboard!', 'success');
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      showToast('Failed to copy token', 'error');
     }
   };
 
@@ -53,7 +70,7 @@ const ForgotPassword = () => {
             <Key size={40} />
           </div>
           <h1 className="text-3xl font-bold">Forgot Password</h1>
-          <p className="text-slate-200 mt-2">Reset your admin password</p>
+          <p className="text-slate-200 mt-2">We'll send you a reset link via email</p>
         </div>
 
         {/* Form */}
@@ -61,9 +78,24 @@ const ForgotPassword = () => {
           {!success ? (
             <>
               {error && (
-                <div className="mb-4 bg-rose-50 border border-rose-200 rounded-lg p-4 flex items-start gap-3">
-                  <AlertCircle className="text-rose-500 flex-shrink-0 mt-0.5" size={20} />
-                  <p className="text-rose-700 text-sm">{error}</p>
+                <div className="mb-4 bg-rose-50 border border-rose-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="text-rose-500 flex-shrink-0 mt-0.5" size={20} />
+                    <div className="flex-1">
+                      <p className="text-rose-700 text-sm font-medium mb-1">{error}</p>
+                      {error.includes('Email could not be sent') && (
+                        <div className="mt-2 text-xs text-rose-600 bg-rose-100 rounded p-2">
+                          <p className="font-medium mb-1">💡 Possible reasons:</p>
+                          <ul className="list-disc list-inside space-y-1 ml-2">
+                            <li>Email service not configured on server</li>
+                            <li>Invalid email credentials in backend</li>
+                            <li>Internet connection issue</li>
+                          </ul>
+                          <p className="mt-2">👨‍💻 <strong>For admin:</strong> Check backend .env file and configure EMAIL_* variables. See EMAIL_SETUP_GUIDE.md</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -86,7 +118,7 @@ const ForgotPassword = () => {
                     />
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    Enter your registered email address to receive a password reset token
+                    We'll send a password reset link to this email address
                   </p>
                 </div>
 
@@ -99,8 +131,8 @@ const ForgotPassword = () => {
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                   ) : (
                     <>
-                      <Key size={20} />
-                      Get Reset Token
+                      <Mail size={20} />
+                      Send Reset Link
                     </>
                   )}
                 </button>
@@ -111,47 +143,59 @@ const ForgotPassword = () => {
               <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-3">
                 <CheckCircle className="text-emerald-500 flex-shrink-0 mt-0.5" size={24} />
                 <div>
-                  <p className="text-emerald-700 font-medium">Reset Token Generated!</p>
+                  <p className="text-emerald-700 font-medium">Email Sent!</p>
                   <p className="text-emerald-600 text-sm mt-1">
-                    Your password reset token has been created.
+                    Check your email inbox for the password reset link.
                   </p>
                 </div>
               </div>
 
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-blue-700 mb-2">📧 What to do next:</p>
+                <ol className="text-sm text-blue-600 space-y-2 list-decimal list-inside">
+                  <li>Check your email inbox</li>
+                  <li>Look for "Password Reset Request" email</li>
+                  <li>Click the reset link in the email</li>
+                  <li>Enter your new password</li>
+                </ol>
+                <p className="text-xs text-blue-500 mt-3">
+                  ⏰ The link expires in 10 minutes for security
+                </p>
+              </div>
+
               {resetToken && (
-                <div className="bg-slate-50 border border-slate-300 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Your Reset Token:</p>
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-4">
+                  <p className="text-xs font-medium text-amber-700 mb-2">🔧 Development Mode - Token Preview:</p>
                   <div className="relative">
-                    <div className="bg-white border border-slate-300 rounded px-3 py-2 pr-12 font-mono text-sm break-all">
+                    <div className="bg-white border border-amber-300 rounded px-3 py-2 pr-12 font-mono text-xs break-all">
                       {resetToken}
                     </div>
                     <button
                       onClick={handleCopyToken}
-                      className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-all ${
+                      className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded transition-all ${
                         copied 
                           ? 'bg-emerald-100 text-emerald-600' 
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          : 'bg-amber-100 text-amber-600 hover:bg-amber-200'
                       }`}
                       title="Copy token"
                     >
-                      {copied ? <Check size={18} /> : <Copy size={18} />}
+                      {copied ? <Check size={16} /> : <Copy size={16} />}
                     </button>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    ⚠️ {copied ? 'Token copied!' : 'Click the copy button to copy. '} Valid for 10 minutes.
-                  </p>
-                  <p className="text-xs text-amber-600 mt-1">
-                    📧 In production, this would be sent to your email
+                  <p className="text-xs text-amber-600 mt-2">
+                    📝 This token preview only shows in development. In production, users will only receive it via email.
                   </p>
                 </div>
               )}
 
-              <Link
-                to="/reset-password"
-                className="block w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-medium py-3 rounded-lg transition-all duration-200 text-center shadow-lg"
-              >
-                Reset Password Now →
-              </Link>
+              {resetToken && (
+                <Link
+                  to={`/reset-password/${resetToken}`}
+                  className="block w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-medium py-3 rounded-lg transition-all duration-200 text-center shadow-lg"
+                >
+                  Test Reset (Dev Only) →
+                </Link>
+              )}
             </div>
           )}
 
@@ -166,7 +210,7 @@ const ForgotPassword = () => {
         {/* Footer */}
         <div className="bg-gray-50 px-8 py-4 text-center border-t">
           <p className="text-xs text-gray-500">
-            Password reset tokens expire in 10 minutes
+            Password reset links expire in 10 minutes for security
           </p>
         </div>
       </div>

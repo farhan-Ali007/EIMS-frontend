@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { getSales, createSale, getProducts, getSellers, getCustomers, generateInvoice } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
@@ -6,11 +7,12 @@ import Modal from '../components/Modal';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import DateRangeFilter from '../components/DateRangeFilter';
+import SearchableSelect from '../components/SearchableSelect';
 import { Plus, Download, ShoppingCart, Calendar, FileDown } from 'lucide-react';
 import { exportToExcel, formatForExport } from '../utils/exportUtils';
+import { useToast } from '../context/ToastContext';
 
 const Sales = () => {
-  const [sales, setSales] = useState([]);
   const [products, setProducts] = useState([]);
   const [sellers, setSellers] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -26,22 +28,21 @@ const Sales = () => {
     customerId: '',
     quantity: '1'
   });
+  const toast = useToast();
+
+  const { data: sales = [], refetch: refetchSales } = useQuery({
+    queryKey: ['sales'],
+    queryFn: async () => {
+      const response = await getSales();
+      return response.data;
+    }
+  });
 
   useEffect(() => {
-    fetchSales();
     fetchProducts();
     fetchSellers();
     fetchCustomers();
   }, []);
-
-  const fetchSales = async () => {
-    try {
-      const response = await getSales();
-      setSales(response.data);
-    } catch (error) {
-      console.error('Error fetching sales:', error);
-    }
-  };
 
   const fetchProducts = async () => {
     try {
@@ -73,20 +74,35 @@ const Sales = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await createSale(formData);
+      // Convert quantity to number before sending
+      const saleData = {
+        ...formData,
+        quantity: parseInt(formData.quantity, 10)
+      };
+
+      console.log('Submitting sale data:', saleData); // Debug log
+
+      await createSale(saleData);
+      toast.success('Sale recorded successfully');
       setIsModalOpen(false);
       resetForm();
-      fetchSales();
+      await refetchSales();
       fetchProducts(); // Refresh to update stock
     } catch (error) {
       console.error('Error creating sale:', error);
-      alert(error.response?.data?.message || 'Error creating sale');
+      toast.error(error.response?.data?.message || 'Error creating sale');
     }
   };
 
   const resetForm = () => {
     setFormData({ productId: '', sellerId: '', customerId: '', quantity: '1' });
   };
+
+  // Calculate preview totals
+  const selectedProduct = products.find(p => p._id === formData.productId);
+  const quantity = parseInt(formData.quantity, 10) || 0;
+  const previewTotal = selectedProduct ? selectedProduct.price * quantity : 0;
+  const previewCommission = selectedProduct ? selectedProduct.commission * quantity : 0;
 
   const handleDownloadInvoice = (saleId) => {
     const invoiceUrl = generateInvoice(saleId);
@@ -103,11 +119,11 @@ const Sales = () => {
   const filteredSales = useMemo(() => {
     return sales.filter(sale => {
       // Search filter
-      const matchesSearch = 
+      const matchesSearch =
         sale.productName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sale.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         sale.sellerName?.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       // Date filter
       let matchesDate = true;
       if (startDate || endDate) {
@@ -121,7 +137,7 @@ const Sales = () => {
           matchesDate = matchesDate && saleDate <= end;
         }
       }
-      
+
       return matchesSearch && matchesDate;
     });
   }, [sales, searchQuery, startDate, endDate]);
@@ -155,16 +171,12 @@ const Sales = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Sales</h1>
-          <p className="text-gray-600 mt-1">Record sales and generate invoices</p>
+          <p className="text-gray-600 mt-1">View sales history and generate invoices</p>
         </div>
         <div className="flex gap-3">
           <Button variant="secondary" onClick={handleExport}>
             <FileDown size={20} />
             Export
-          </Button>
-          <Button onClick={() => { resetForm(); setIsModalOpen(true); }}>
-            <Plus size={20} />
-            New Sale
           </Button>
         </div>
       </div>
@@ -209,7 +221,7 @@ const Sales = () => {
             </div>
           </CardBody>
         </Card>
-        
+
         <Card>
           <CardBody>
             <div className="flex items-center gap-3">
@@ -218,7 +230,7 @@ const Sales = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-emerald-600">Rs. {totalRevenue.toLocaleString('en-PK', {minimumFractionDigits: 2})}</p>
+                <p className="text-2xl font-bold text-emerald-600">Rs. {totalRevenue.toLocaleString('en-PK', { minimumFractionDigits: 2 })}</p>
               </div>
             </div>
           </CardBody>
@@ -232,19 +244,19 @@ const Sales = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Commission</p>
-                <p className="text-2xl font-bold text-blue-600">Rs. {totalCommission.toLocaleString('en-PK', {minimumFractionDigits: 2})}</p>
+                <p className="text-2xl font-bold text-blue-600">Rs. {totalCommission.toLocaleString('en-PK', { minimumFractionDigits: 2 })}</p>
               </div>
             </div>
           </CardBody>
         </Card>
       </div>
 
-      {/* Sales Table */}
+      {/* Sales Table (read-only history) */}
       <Card>
         <CardHeader>
           <CardTitle>
-            {searchQuery || startDate || endDate 
-              ? `Filtered Sales (${filteredSales.length})` 
+            {searchQuery || startDate || endDate
+              ? `Filtered Sales (${filteredSales.length})`
               : `All Sales (${sales.length})`}
           </CardTitle>
         </CardHeader>
@@ -278,12 +290,12 @@ const Sales = () => {
                     <td className="px-6 py-4 text-sm text-gray-600">{sale.customerName}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{sale.sellerName}</td>
                     <td className="px-6 py-4 text-sm text-gray-800">{sale.quantity}</td>
-                    <td className="px-6 py-4 font-medium text-emerald-600">Rs. {sale.total.toLocaleString('en-PK', {minimumFractionDigits: 2})}</td>
-                    <td className="px-6 py-4 text-sm text-teal-600">Rs. {sale.commission.toLocaleString('en-PK', {minimumFractionDigits: 2})}</td>
+                    <td className="px-6 py-4 font-medium text-emerald-600">Rs. {sale.total.toLocaleString('en-PK', { minimumFractionDigits: 2 })}</td>
+                    <td className="px-6 py-4 text-sm text-teal-600">Rs. {sale.commission.toLocaleString('en-PK', { minimumFractionDigits: 2 })}</td>
                     <td className="px-6 py-4">
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => handleDownloadInvoice(sale._id)}
                       >
                         <Download size={16} />
@@ -313,97 +325,7 @@ const Sales = () => {
         </CardBody>
       </Card>
 
-      {/* New Sale Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); resetForm(); }}
-        title="Record New Sale"
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
-            <select
-              required
-              value={formData.productId}
-              onChange={(e) => setFormData({ ...formData, productId: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Select a product</option>
-              {products.map((product) => (
-                <option key={product._id} value={product._id}>
-                  {product.name} - Rs. {product.price.toLocaleString('en-PK')} (Stock: {product.stock})
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Seller</label>
-            <select
-              required
-              value={formData.sellerId}
-              onChange={(e) => setFormData({ ...formData, sellerId: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Select a seller</option>
-              {sellers.map((seller) => (
-                <option key={seller._id} value={seller._id}>
-                  {seller.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
-            <select
-              required
-              value={formData.customerId}
-              onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Select a customer</option>
-              {customers.map((customer) => (
-                <option key={customer._id} value={customer._id}>
-                  {customer.name} ({customer.type})
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-            <input
-              type="number"
-              min="1"
-              required
-              value={formData.quantity}
-              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          
-          <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-            <p className="text-sm text-emerald-800">
-              <strong>Note:</strong> Total and commission will be calculated automatically based on product price and quantity.
-            </p>
-          </div>
-          
-          <div className="flex gap-3 mt-6">
-            <Button type="submit" className="flex-1">
-              Record Sale
-            </Button>
-            <Button 
-              type="button" 
-              variant="secondary" 
-              onClick={() => { setIsModalOpen(false); resetForm(); }}
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      {/* No manual sale creation modal: sales are generated from Bills only */}
     </div>
   );
 };

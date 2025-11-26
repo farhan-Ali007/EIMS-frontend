@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -6,10 +6,13 @@ import {
   Users,
   UserCircle,
   ShoppingCart,
+  Receipt,
   LogOut,
   Menu,
   X,
-  Settings
+  Settings,
+  Wallet,
+  Truck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -21,7 +24,7 @@ const Layout = () => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, role } = useAuth();
   const { notifications, dismissNotification, clearAllNotifications } = useNotifications();
 
   const handleLogout = async () => {
@@ -29,13 +32,31 @@ const Layout = () => {
     navigate('/login');
   };
 
-  const navItems = [
-    { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    { path: '/products', icon: Package, label: 'Products' },
-    { path: '/sellers', icon: Users, label: 'Sellers' },
-    { path: '/customers', icon: UserCircle, label: 'Customers' },
-    { path: '/sales', icon: ShoppingCart, label: 'Sales' },
+  const allNavItems = [
+    { path: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'superadmin'] },
+    { path: '/admin-management', icon: Users, label: 'Admins', roles: ['admin', 'superadmin'] },
+    { path: '/products', icon: Package, label: 'Products', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/sellers', icon: Users, label: 'Sellers', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/customers', icon: UserCircle, label: 'Customers', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/billing', icon: Receipt, label: 'Billing', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/sales', icon: ShoppingCart, label: 'Sales', roles: ['admin', 'superadmin'] },
+    { path: '/expenses', icon: Wallet, label: 'Expenses', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/returns', icon: Package, label: 'Returns', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/po', icon: Truck, label: 'PO', roles: ['admin', 'superadmin', 'manager'] },
   ];
+
+  const navItems = allNavItems.filter(item => !item.roles || item.roles.includes(role));
+
+  const getRoleLabel = () => {
+    if (role === 'seller') return 'Seller';
+    if (role === 'manager') return 'Manager';
+    if (role === 'superadmin') return 'Super Admin';
+    return 'Admin';
+  };
+
+  useEffect(()=>{
+    window.scrollTo(0,0)
+  },[location.pathname])
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -55,19 +76,22 @@ const Layout = () => {
         </div>
         
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto sidebar-scroll">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
+            const baseClasses = isActive 
+              ? 'bg-blue-600 shadow-lg text-white' 
+              : 'text-slate-300 hover:bg-slate-700 hover:text-white';
+
+            const layoutClasses = isSidebarOpen
+              ? 'flex items-center gap-3 px-4 py-3'
+              : 'flex items-center justify-center px-0 py-3';
+
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`
-                  flex items-center gap-3 px-4 py-3 rounded-lg transition-all
-                  ${isActive 
-                    ? 'bg-blue-600 shadow-lg text-white' 
-                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'}
-                `}
+                className={`${layoutClasses} rounded-lg transition-all ${baseClasses}`}
               >
                 <item.icon size={20} />
                 {isSidebarOpen && <span className="font-medium">{item.label}</span>}
@@ -83,8 +107,8 @@ const Layout = () => {
               {/* User Info */}
               <div className="bg-slate-700/50 rounded-lg p-3">
                 <p className="text-xs text-slate-400 mb-1">Logged in as</p>
-                <p className="text-sm font-semibold text-white">{user?.username || 'Admin'}</p>
-                <p className="text-xs text-slate-400 truncate">{user?.email || ''}</p>
+                <p className="text-sm font-semibold text-white">{user?.username || getRoleLabel()}</p>
+                {/* <p className="text-xs text-slate-400 truncate">{user?.email || ''}</p> */}
               </div>
               
               {/* Action Buttons */}
@@ -141,11 +165,17 @@ const Layout = () => {
                 {navItems.find(item => item.path === location.pathname)?.label || 'Dashboard'}
               </h2>
             </div>
-            <NotificationCenter
-              notifications={notifications}
-              onDismiss={dismissNotification}
-              onClearAll={clearAllNotifications}
-            />
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-medium text-slate-700">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
+                {getRoleLabel()}
+              </div>
+              <NotificationCenter
+                notifications={notifications}
+                onDismiss={dismissNotification}
+                onClearAll={clearAllNotifications}
+              />
+            </div>
           </div>
         </header>
 

@@ -1,17 +1,47 @@
 import React, { createContext, useContext, useState } from 'react';
 import Toast from '../components/Toast';
 
-const ToastContext = createContext();
+const ToastContext = createContext({
+  showToast: () => {},
+  success: () => {},
+  error: () => {},
+  warning: () => {},
+  info: () => {}
+});
 
 export const useToast = () => {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within ToastProvider');
+  try {
+    const context = useContext(ToastContext);
+    if (!context) {
+      console.warn('useToast called outside ToastProvider, returning default functions');
+      return {
+        showToast: () => {},
+        success: () => {},
+        error: () => {},
+        warning: () => {},
+        info: () => {}
+      };
+    }
+    return context;
+  } catch (error) {
+    console.error('useToast error:', error);
+    return {
+      showToast: () => {},
+      success: () => {},
+      error: () => {},
+      warning: () => {},
+      info: () => {}
+    };
   }
-  return context;
 };
 
 export const ToastProvider = ({ children }) => {
+  // Add defensive check for useState
+  if (!useState) {
+    console.error('useState is not available, React may not be properly loaded');
+    return <div>{children}</div>;
+  }
+  
   const [toasts, setToasts] = useState([]);
 
   const showToast = (message, type = 'success', duration = 3000) => {

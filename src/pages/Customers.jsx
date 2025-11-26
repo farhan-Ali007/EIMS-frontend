@@ -1,55 +1,57 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
-import { Plus, Edit, Trash2, UserCircle, Globe, MapPin, Download, Filter } from 'lucide-react';
+import { Plus, Edit, Trash2, UserCircle, Globe, MapPin, Download, Filter, Users, Monitor } from 'lucide-react';
 import { exportToExcel, formatForExport } from '../utils/exportUtils';
+import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 const Customers = () => {
-  const [customers, setCustomers] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'online', 'offline'
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [formData, setFormData] = useState({
     name: '',
     type: 'online',
-    email: '',
     phone: '',
     address: ''
   });
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { role } = useAuth();
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
-  const fetchCustomers = async () => {
-    try {
+  const { data: customers = [] } = useQuery({
+    queryKey: ['customers'],
+    queryFn: async () => {
       const response = await getCustomers();
-      setCustomers(response.data);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
+      return response.data;
     }
-  };
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editingCustomer) {
         await updateCustomer(editingCustomer._id, formData);
+        toast.success('Customer updated successfully');
       } else {
         await createCustomer(formData);
+        toast.success('Customer created successfully');
       }
       setIsModalOpen(false);
       resetForm();
-      fetchCustomers();
+      await queryClient.invalidateQueries({ queryKey: ['customers'] });
     } catch (error) {
       console.error('Error saving customer:', error);
+      toast.error(error.response?.data?.message || 'Failed to save customer');
     }
   };
 
@@ -58,7 +60,6 @@ const Customers = () => {
     setFormData({
       name: customer.name,
       type: customer.type,
-      email: customer.email || '',
       phone: customer.phone || '',
       address: customer.address || ''
     });
@@ -69,30 +70,33 @@ const Customers = () => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
       try {
         await deleteCustomer(id);
-        fetchCustomers();
+        await queryClient.invalidateQueries({ queryKey: ['customers'] });
+        toast.success('Customer deleted successfully');
       } catch (error) {
         console.error('Error deleting customer:', error);
+        toast.error(error.response?.data?.message || 'Failed to delete customer');
       }
     }
   };
 
   const resetForm = () => {
-    setFormData({ name: '', type: 'online', email: '', phone: '', address: '' });
+    // Default to current tab type, or 'online' if 'all' is selected
+    const defaultType = activeTab === 'all' ? 'online' : activeTab;
+    setFormData({ name: '', type: defaultType, phone: '', address: '' });
     setEditingCustomer(null);
   };
 
-  // Filter and search customers
+  // Filter and search customers based on active tab
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
       const matchesSearch = 
         customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        customer.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         customer.phone?.includes(searchQuery) ||
         customer.address?.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesType = typeFilter === 'all' || customer.type === typeFilter;
-      return matchesSearch && matchesType;
+      const matchesTab = activeTab === 'all' || customer.type === activeTab;
+      return matchesSearch && matchesTab;
     });
-  }, [customers, searchQuery, typeFilter]);
+  }, [customers, searchQuery, activeTab]);
 
   // Paginate customers
   const paginatedCustomers = useMemo(() => {
@@ -108,10 +112,10 @@ const Customers = () => {
     exportToExcel(formattedData, 'customers');
   };
 
-  // Reset to page 1 when search/filter changes
+  // Reset to page 1 when search/tab changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, typeFilter]);
+  }, [searchQuery, activeTab]);
 
   const onlineCount = customers.filter(c => c.type === 'online').length;
   const offlineCount = customers.filter(c => c.type === 'offline').length;
@@ -136,40 +140,67 @@ const Customers = () => {
         </div>
       </div>
 
-      {/* Search and Filter */}
-      <Card>
-        <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
+      {/* Tabs and Search */}
+      <Card className="shadow-lg border-0">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <CardTitle className="text-xl font-bold text-gray-800">Customer Management</CardTitle>
+              
+              {/* Tab Navigation */}
+              <div className="flex bg-white rounded-xl p-1 shadow-sm border">
+                <button
+                  onClick={() => setActiveTab('all')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'all'
+                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Users size={16} />
+                  All ({customers.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('online')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'online'
+                      ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Globe size={16} />
+                  Online ({onlineCount})
+                </button>
+                <button
+                  onClick={() => setActiveTab('offline')}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    activeTab === 'offline'
+                      ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <MapPin size={16} />
+                  Offline ({offlineCount})
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
               <SearchBar
                 value={searchQuery}
                 onChange={setSearchQuery}
-                placeholder="Search by name, email, phone, or address..."
+                placeholder="Search customers..."
+                className="w-80"
               />
             </div>
-            <div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Filter className="text-gray-400" size={20} />
-                </div>
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent appearance-none bg-white"
-                >
-                  <option value="all">All Types</option>
-                  <option value="online">Online</option>
-                  <option value="offline">Offline</option>
-                </select>
-              </div>
-            </div>
           </div>
-          {(searchQuery || typeFilter !== 'all') && (
+          
+          {searchQuery && (
             <div className="mt-3 text-sm text-gray-600">
-              Found {filteredCustomers.length} customer(s)
+              Found {filteredCustomers.length} customer(s) in {activeTab === 'all' ? 'all categories' : `${activeTab} customers`}
             </div>
           )}
-        </CardBody>
+        </CardHeader>
       </Card>
 
       {/* Stats */}
@@ -218,13 +249,21 @@ const Customers = () => {
       </div>
 
       {/* Customers Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {searchQuery || typeFilter !== 'all' 
-              ? `Filtered Customers (${filteredCustomers.length})` 
-              : `All Customers (${customers.length})`}
-          </CardTitle>
+      <Card className="shadow-lg border-0 overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              {activeTab === 'all' && <Users className="text-gray-600" size={20} />}
+              {activeTab === 'online' && <Globe className="text-emerald-600" size={20} />}
+              {activeTab === 'offline' && <MapPin className="text-teal-600" size={20} />}
+              {activeTab === 'all' ? 'All Customers' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Customers`} ({filteredCustomers.length})
+            </CardTitle>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span className="px-2 py-1 bg-white rounded-md shadow-sm">
+                Page {currentPage} of {totalPages}
+              </span>
+            </div>
+          </div>
         </CardHeader>
         <CardBody className="p-0">
           <div className="overflow-x-auto">
@@ -233,7 +272,6 @@ const Customers = () => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -257,7 +295,6 @@ const Customers = () => {
                         {customer.type === 'online' ? '🌐 Online' : '📍 Offline'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{customer.email || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.phone || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.address || '-'}</td>
                     <td className="px-6 py-4">
@@ -265,9 +302,11 @@ const Customers = () => {
                         <Button variant="secondary" size="sm" onClick={() => handleEdit(customer)}>
                           <Edit size={16} />
                         </Button>
-                        <Button variant="danger" size="sm" onClick={() => handleDelete(customer._id)}>
-                          <Trash2 size={16} />
-                        </Button>
+                        {(role === 'admin' || role === 'superadmin') && (
+                          <Button variant="danger" size="sm" onClick={() => handleDelete(customer._id)}>
+                            <Trash2 size={16} />
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -325,19 +364,10 @@ const Customers = () => {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input
               type="tel"
+              required
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"

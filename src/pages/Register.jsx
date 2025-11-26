@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { UserPlus, Mail, Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 const Register = () => {
@@ -8,7 +9,8 @@ const Register = () => {
     username: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    inviteCode: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,6 +19,7 @@ const Register = () => {
   
   const navigate = useNavigate();
   const { register } = useAuth();
+  const toast = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,12 +38,13 @@ const Register = () => {
 
     setLoading(true);
 
-    const result = await register(formData.username, formData.email, formData.password);
+    const result = await register(formData.username, formData.email, formData.password, formData.inviteCode);
     
     if (result.success) {
       navigate('/');
     } else {
       setError(result.message);
+      toast.error(result.message || 'Registration failed');
     }
     
     setLoading(false);
@@ -94,6 +98,21 @@ const Register = () => {
                   placeholder="johndoe"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Invite Code
+              </label>
+              <input
+                type="text"
+                name="inviteCode"
+                required
+                value={formData.inviteCode}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent tracking-widest text-sm uppercase"
+                placeholder="Enter code from admin"
+              />
             </div>
 
             <div>

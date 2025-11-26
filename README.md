@@ -1,4 +1,184 @@
 # 🎨 Inventory Management System - Frontend
+## 🎨 Etimad Mart – Frontend (React)
+
+Modern, responsive React application for the Etimad Mart Inventory & Billing System. This is the **admin/manager/seller UI** that talks to the Node/Express backend.
+
+---
+
+## 🧱 Tech Stack
+
+- React 18 + Vite
+- React Router v6
+- **@tanstack/react-query** – data fetching, caching, invalidation
+- Tailwind CSS – styling
+- Axios – HTTP client
+- Lucide React – icons
+
+---
+
+## 🚀 Key Features (Frontend)
+
+- **Auth & Roles**
+  - Login / logout with JWT (handled by backend)
+  - Roles: `superadmin`, `admin`, `manager`, `seller`
+  - Protected routes (`ProtectedRoute`) based on role
+
+- **Dashboard**
+  - Admin dashboard with high‑level stats and charts
+  - Seller dashboard (separate route) with personal stats and commission history
+
+- **Products**
+  - CRUD UI for products with multiple price tiers (original / wholesale / retail / website)
+  - Stock management and low‑stock banner
+  - Filter by category
+  - **Search by name, model, and category**
+  - Delete button hidden for `manager` (only `admin`/`superadmin` can delete); backend enforces this too
+
+- **Sellers**
+  - Manage sellers (create, update, delete)
+  - Auto‑generated credentials on create (shown in modal)
+  - Seller leaderboard
+
+- **Customers**
+  - Customer list with CRUD and search
+
+- **Billing (POS)**
+  - Build bills from products with quantity and price selection
+  - Discounts (percentage/fixed)
+  - Customer remaining balance and history
+  - **Bill History** component with search, filters, and server‑side pagination
+  - Beautiful invoice modal (`BillReceipt`) with:
+    - Items table
+    - Totals & discount
+    - Total amount shown
+    - **Amount Paid** and **Remaining Balance** shown as blank placeholders
+  - Printing using `window.print()` with `@media print` so layout matches the on‑screen invoice
+
+- **Returns**
+  - Sidebar page for logging product returns
+  - Form fields:
+    - Product (SearchableSelect – search by name/model)
+    - Quantity
+    - Unit price (optional)
+    - Customer name (who returned)
+    - Tracking ID
+    - Notes
+  - Returns table with date, product, model, customer, tracking ID, quantity, unit price, notes
+  - Each return triggers a backend call that **increments product stock**
+
+- **Expenses**
+  - List and create expenses
+  - Stats (today / week / month / year)
+  - Date‑range filters and retry on error
+
+- **Admin Management**
+  - Manage admins/managers and their roles
+  - Role changes reflected via TanStack Query invalidation
+
+---
+
+## 📡 TanStack Query Usage
+
+The frontend uses **@tanstack/react-query** for most data:
+
+- `useQuery` for lists and stats:
+  - `['products']`, `['customers']`, `['sellers']`, `['lowStockProducts']`
+  - `['sales']`, `['expenses']`, `['expenseStats']`
+  - `['bills']`, `['billingStats']`
+  - `['returns']`
+  - `['admins']`
+
+- Mutations (create/update/delete) call `queryClient.invalidateQueries` so lists and stats refresh automatically.
+
+Client‑side pagination and filters are kept where originally used (e.g. Products, Sellers), while server‑side pagination is used for Billing History.
+
+---
+
+## 📁 Project Structure
+
+```text
+frontend/
+├── index.html
+├── src/
+│   ├── App.jsx              # App routes & layout
+│   ├── main.jsx             # React entry, QueryClientProvider
+│   ├── index.css            # Tailwind + global styles (@media print)
+│   ├── components/
+│   │   ├── Layout.jsx       # Sidebar + header layout
+│   │   ├── ProtectedRoute.jsx
+│   │   ├── BillingHistory.jsx
+│   │   ├── BillReceipt.jsx
+│   │   ├── SearchableSelect.jsx
+│   │   ├── Card.jsx, Button.jsx, Modal.jsx, Pagination.jsx, etc.
+│   ├── context/
+│   │   ├── AuthContext.jsx      # user, token, role
+│   │   ├── ToastContext.jsx
+│   │   └── NotificationContext.jsx
+│   ├── pages/
+│   │   ├── Dashboard.jsx
+│   │   ├── Products.jsx
+│   │   ├── Sellers.jsx
+│   │   ├── Customers.jsx
+│   │   ├── Billing.jsx
+│   │   ├── Sales.jsx
+│   │   ├── Expenses.jsx
+│   │   ├── Returns.jsx
+│   │   ├── AdminManagement.jsx
+│   │   ├── SellerDashboard.jsx
+│   │   ├── SellerPasswordChange.jsx
+│   │   ├── Login.jsx, Register.jsx
+│   │   ├── ForgotPassword.jsx, ResetPassword.jsx
+│   └── services/
+│       └── api.js          # Axios instance + endpoint helpers
+├── public/
+│   └── favicon.svg
+├── vite.config.js
+├── tailwind.config.js
+└── package.json
+```
+
+---
+
+## ⚙️ Setup & Run (Frontend Only)
+
+### 1. Install
+
+```bash
+cd frontend
+npm install
+```
+
+### 2. Environment
+
+Create `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:4000/api
+```
+
+### 3. Run Dev Server
+
+```bash
+npm run dev
+```
+
+Open: `http://localhost:5173`
+
+### 4. Build
+
+```bash
+npm run build
+npm run preview
+```
+
+---
+
+## 🧩 Notes
+
+- Printing of bills uses `window.print()` and CSS `@media print` to hide the app chrome and show only `#bill-content`.
+- Product delete is visually hidden for managers and also blocked by the backend.
+- Returns page is admin/manager‑only and is fully integrated with product stock updates.
+
 
 Modern, responsive React application for inventory management with role-based dashboards for admins and sellers.
 

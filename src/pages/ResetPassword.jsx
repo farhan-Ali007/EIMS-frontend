@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Lock, ArrowLeft, AlertCircle, CheckCircle, Key, Eye, EyeOff } from 'lucide-react';
 import { resetPassword } from '../services/api';
+import { useToast } from '../context/ToastContext';
 
 const ResetPassword = () => {
+  const { token } = useParams(); // Get token from URL
   const [formData, setFormData] = useState({
-    resetToken: '',
+    resetToken: token || '',
     newPassword: '',
     confirmPassword: ''
   });
@@ -15,6 +17,17 @@ const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
+  const { showToast } = useToast();
+
+  // Auto-fill token from URL
+  useEffect(() => {
+    if (token) {
+      setFormData(prev => ({ ...prev, resetToken: token }));
+    } else {
+      setError('Invalid reset link. Please request a new password reset.');
+      showToast('Invalid reset link', 'error');
+    }
+  }, [token, showToast]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,13 +35,21 @@ const ResetPassword = () => {
     setSuccess(false);
 
     // Validation
+    if (!formData.resetToken) {
+      setError('Missing reset token. Please use the link from your email.');
+      showToast('Missing reset token', 'error');
+      return;
+    }
+
     if (formData.newPassword !== formData.confirmPassword) {
       setError('Passwords do not match');
+      showToast('Passwords do not match', 'error');
       return;
     }
 
     if (formData.newPassword.length < 6) {
       setError('Password must be at least 6 characters');
+      showToast('Password must be at least 6 characters', 'error');
       return;
     }
 
@@ -41,13 +62,18 @@ const ResetPassword = () => {
       });
 
       setSuccess(true);
+      showToast('✅ Password reset successful!', 'success');
 
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        navigate('/login');
+        navigate('/login', {
+          state: { message: 'Password reset successful! Please login with your new password.' }
+        });
       }, 3000);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to reset password');
+      const errorMsg = err.response?.data?.message || 'Failed to reset password. Token may be invalid or expired.';
+      setError(errorMsg);
+      showToast(errorMsg, 'error');
     } finally {
       setLoading(false);
     }
@@ -62,7 +88,7 @@ const ResetPassword = () => {
             <Lock size={40} />
           </div>
           <h1 className="text-3xl font-bold">Reset Password</h1>
-          <p className="text-slate-200 mt-2">Enter your new password</p>
+          <p className="text-slate-200 mt-2">Choose a new secure password</p>
         </div>
 
         {/* Form */}
@@ -77,28 +103,15 @@ const ResetPassword = () => {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-5">
-                {/* Reset Token */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Reset Token
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Key className="text-gray-400" size={20} />
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      value={formData.resetToken}
-                      onChange={(e) => setFormData({ ...formData, resetToken: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono text-sm"
-                      placeholder="Paste your reset token here"
-                    />
+                {/* Token Info (Hidden field, auto-filled from URL) */}
+                {token && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-xs text-blue-700 flex items-center gap-2">
+                      <CheckCircle size={16} className="text-blue-500" />
+                      Reset token verified from email link
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Enter the token you received from forgot password
-                  </p>
-                </div>
+                )}
 
                 {/* New Password */}
                 <div>

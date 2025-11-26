@@ -1,17 +1,50 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getLowStockProducts } from '../services/api';
 
-const NotificationContext = createContext();
+const NotificationContext = createContext({
+  notifications: [],
+  addNotification: () => {},
+  dismissNotification: () => {},
+  clearAllNotifications: () => {},
+  markAsRead: () => {},
+  markAllAsRead: () => {}
+});
 
 export const useNotifications = () => {
-  const context = useContext(NotificationContext);
-  if (!context) {
-    throw new Error('useNotifications must be used within NotificationProvider');
+  try {
+    const context = useContext(NotificationContext);
+    if (!context) {
+      console.warn('useNotifications called outside NotificationProvider, returning default functions');
+      return {
+        notifications: [],
+        addNotification: () => {},
+        dismissNotification: () => {},
+        clearAllNotifications: () => {},
+        markAsRead: () => {},
+        markAllAsRead: () => {}
+      };
+    }
+    return context;
+  } catch (error) {
+    console.error('useNotifications error:', error);
+    return {
+      notifications: [],
+      addNotification: () => {},
+      dismissNotification: () => {},
+      clearAllNotifications: () => {},
+      markAsRead: () => {},
+      markAllAsRead: () => {}
+    };
   }
-  return context;
 };
 
 export const NotificationProvider = ({ children }) => {
+  // Add defensive check for React hooks
+  if (!useState || !useEffect) {
+    console.error('React hooks not available, React may not be properly loaded');
+    return <div>{children}</div>;
+  }
+  
   const [notifications, setNotifications] = useState([]);
 
   // Check for low stock every 5 minutes - only when user is authenticated
