@@ -140,6 +140,24 @@ const Products = () => {
     setEditingProduct(null);
   };
 
+  // Auto-calculate prices from original price
+  const handleOriginalPriceChange = (e) => {
+    const value = e.target.value;
+    setFormData((prev) => {
+      const updated = { ...prev, originalPrice: value };
+      const base = parseFloat(value);
+
+      if (!isNaN(base)) {
+        // Always recalc margins so user sees live prices
+        updated.wholesalePrice = Math.round(base * 1.15);
+        updated.retailPrice = Math.round(base * 1.25);
+        updated.websitePrice = Math.round(base * 1.35);
+      }
+
+      return updated;
+    });
+  };
+
   // Get unique categories for filter
   const filterCategories = useMemo(() => {
     const cats = [...new Set(products.map(p => p.category))];
@@ -700,7 +718,7 @@ const Products = () => {
                 step="0.01"
                 required
                 value={formData.originalPrice}
-                onChange={(e) => setFormData({ ...formData, originalPrice: e.target.value })}
+                onChange={handleOriginalPriceChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>

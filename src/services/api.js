@@ -71,7 +71,7 @@ export const getSale = (id) => api.get(`/sales/${id}`);
 export const createSale = (data) => api.post('/sales', data);
 export const deleteSale = (id) => api.delete(`/sales/${id}`);
 
-// Dashboard
+// Dashboard 
 export const getDashboardStats = () => api.get('/dashboard/stats');
 export const getChartData = () => api.get('/dashboard/chart-data');
 

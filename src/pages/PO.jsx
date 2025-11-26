@@ -16,6 +16,7 @@ const PO = () => {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [form, setForm] = useState({
     trackingNumber: '',
+    customerName: '',
     address: '',
     status: 'processing',
     paymentStatus: 'unpaid',
@@ -79,6 +80,10 @@ const PO = () => {
       toast.error('Please select a product');
       return;
     }
+    if (!form.customerName.trim()) {
+      toast.error('Customer name is required');
+      return;
+    }
     if (!form.trackingNumber.trim() || !form.address.trim()) {
       toast.error('Tracking number and address are required');
       return;
@@ -87,6 +92,7 @@ const PO = () => {
     try {
       await createParcel({
         productId: selectedProductId,
+        customerName: form.customerName.trim(),
         trackingNumber: form.trackingNumber.trim(),
         address: form.address.trim(),
         status: form.status,
@@ -94,7 +100,7 @@ const PO = () => {
         notes: form.notes.trim()
       });
       toast.success('Parcel recorded successfully');
-      setForm({ trackingNumber: '', address: '', status: 'processing', paymentStatus: 'unpaid', notes: '' });
+      setForm({ trackingNumber: '', customerName: '', address: '', status: 'processing', paymentStatus: 'unpaid', notes: '' });
       setSelectedProductId('');
       setProductSearch('');
       await queryClient.invalidateQueries({ queryKey: ['parcels'] });
@@ -156,6 +162,19 @@ const PO = () => {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Customer Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+                <input
+                  type="text"
+                  value={form.customerName}
+                  onChange={(e) => setForm({ ...form, customerName: e.target.value })}
+                  placeholder="Enter customer name for this parcel"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  required
+                />
               </div>
 
               {/* Tracking number */}
@@ -278,6 +297,7 @@ const PO = () => {
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tracking #</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Payment</th>
@@ -301,6 +321,9 @@ const PO = () => {
                         ) : (
                           '-'
                         )}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-gray-800">
+                        {p.customerName || '-'}
                       </td>
                       <td className="px-4 py-2 text-xs text-gray-700 max-w-xs break-words">
                         <div className="flex items-start gap-1">
