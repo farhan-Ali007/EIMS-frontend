@@ -5,13 +5,14 @@ let API_URL;
 if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
   // Local development
   API_URL = 'http://localhost:4000/api';
-} else if (typeof window !== 'undefined' && window.location.hostname === 'https://etimad-inventory.up.railway.app') {
-  // Production domain
+} else if (typeof window !== 'undefined' && window.location.hostname === 'etimad-inventory.up.railway.app') {
+  // Production
   API_URL = 'https://etimad-inventory.up.railway.app/api';
 } else {
-  // Fallback (treat as production)
+  // Fallback
   API_URL = 'https://etimad-inventory.up.railway.app/api';
 }
+
 
 const api = axios.create({
   baseURL: API_URL,
