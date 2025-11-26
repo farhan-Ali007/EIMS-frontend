@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Package, DollarSign, TrendingUp, ShoppingCart, LogOut, KeyRound } from 'lucide-react';
 import axios from 'axios';
+import { baseURL } from '../services/baseURL';
 
 const SellerDashboard = () => {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ const SellerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [salesLoading, setSalesLoading] = useState(true);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+  const API_URL = baseURL || 'http://localhost:4000/api';
 
   useEffect(() => {
     fetchSellerStats();

@@ -12,6 +12,7 @@ import { exportToExcel, formatForExport } from '../utils/exportUtils';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useToast } from '../context/ToastContext';
+import { baseURL } from '../services/baseURL';
 
 const Products = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -180,7 +181,7 @@ const Products = () => {
   const fetchStockHistory = async (productId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/products/${productId}/stock-history`, {
+      const response = await axios.get(`${baseURL}/products/${productId}/stock-history`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setStockHistory(response.data);
@@ -199,7 +200,7 @@ const Products = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:4000/api'}/products/${selectedProduct._id}/add-stock`, 
+      await axios.post(`${baseURL}/products/${selectedProduct._id}/add-stock`, 
         stockFormData,
         { headers: { Authorization: `Bearer ${token}` } }
       );

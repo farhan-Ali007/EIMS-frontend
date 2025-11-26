@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
+import { baseURL } from '../services/baseURL';
 
 const AuthContext = createContext({
   admin: null,
@@ -8,7 +9,7 @@ const AuthContext = createContext({
   loading: true,
   login: async () => ({ success: false }),
   register: async () => ({ success: false }),
-  logout: async () => {},
+  logout: async () => { },
   isAuthenticated: false,
   userType: 'admin'
 });
@@ -33,7 +34,7 @@ const AuthProvider = ({ children }) => {
     }
   });
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+  const API_URL = baseURL
 
   // Check if admin is logged in on mount
   useEffect(() => {
@@ -50,7 +51,7 @@ const AuthProvider = ({ children }) => {
       setLoading(false);
       return;
     }
-    
+
     if (savedToken) {
       try {
         const response = await axios.get(`${API_URL}/auth/me`, {
@@ -85,13 +86,13 @@ const AuthProvider = ({ children }) => {
         { email, password },
         { withCredentials: true }
       );
-      
+
       // Handle both admin and seller login responses
       const { token: newToken, admin: adminData, user: userData, userType } = response.data;
-      
+
       // Use admin data if admin login, otherwise use user data (for seller)
       const userProfile = adminData || userData;
-      
+
       try {
         localStorage.setItem('token', newToken);
         localStorage.setItem('userType', userType || 'admin'); // Store user type
@@ -100,12 +101,12 @@ const AuthProvider = ({ children }) => {
       }
       setToken(newToken);
       setAdmin(userProfile); // Store user profile (admin or seller)
-      
+
       return { success: true, userType };
     } catch (error) {
-      return { 
-        success: false, 
-        message: error.response?.data?.message || 'Login failed' 
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Login failed'
       };
     }
   };
@@ -117,9 +118,9 @@ const AuthProvider = ({ children }) => {
         { username, email, password, inviteCode },
         { withCredentials: true }
       );
-      
+
       const { token: newToken, admin: adminData } = response.data;
-      
+
       try {
         localStorage.setItem('token', newToken);
       } catch (storageError) {
@@ -127,12 +128,12 @@ const AuthProvider = ({ children }) => {
       }
       setToken(newToken);
       setAdmin(adminData);
-      
+
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        message: error.response?.data?.message || 'Registration failed' 
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Registration failed'
       };
     }
   };

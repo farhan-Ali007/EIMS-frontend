@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Eye, EyeOff, KeyRound, AlertCircle, CheckCircle } from 'lucide-react';
 import axios from 'axios';
+import { baseURL } from '../services/baseURL';
 
 const SellerPasswordChange = ({ isFirstLogin = false }) => {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ const SellerPasswordChange = ({ isFirstLogin = false }) => {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+  const API_URL = baseURL 
 
   const handleChange = (e) => {
     setFormData({
@@ -64,7 +65,7 @@ const SellerPasswordChange = ({ isFirstLogin = false }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     setLoading(true);
@@ -72,7 +73,7 @@ const SellerPasswordChange = ({ isFirstLogin = false }) => {
 
     try {
       const token = localStorage.getItem('token');
-      
+
       await axios.put(
         `${API_URL}/auth/change-password`,
         {
@@ -89,7 +90,7 @@ const SellerPasswordChange = ({ isFirstLogin = false }) => {
       // After successful password change, logout and redirect to login
       setTimeout(async () => {
         await logout();
-        navigate('/login', { 
+        navigate('/login', {
           state: { message: 'Password changed successfully! Please login with your new password.' }
         });
       }, 2000);
@@ -120,8 +121,8 @@ const SellerPasswordChange = ({ isFirstLogin = false }) => {
             {isFirstLogin ? 'Welcome! Set Your Password' : 'Change Password'}
           </h1>
           <p className="text-blue-100 mt-2">
-            {isFirstLogin 
-              ? 'Please change your temporary password' 
+            {isFirstLogin
+              ? 'Please change your temporary password'
               : 'Update your password for security'}
           </p>
         </div>
