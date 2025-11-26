@@ -1,17 +1,10 @@
 import axios from 'axios';
 
-let API_URL;
+export const API_URL =
+  window.location.hostname === "localhost"
+    ? "http://localhost:4000/api"
+    : "https://etimad-inventory.up.railway.app/api";
 
-if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-  // Local development
-  API_URL = 'http://localhost:4000/api';
-} else if (typeof window !== 'undefined' && window.location.hostname === 'etimad-inventory.up.railway.app') {
-  // Production
-  API_URL = 'https://etimad-inventory.up.railway.app/api';
-} else {
-  // Fallback
-  API_URL = 'https://etimad-inventory.up.railway.app/api';
-}
 
 
 const api = axios.create({
