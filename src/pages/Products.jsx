@@ -530,7 +530,7 @@ const Products = () => {
 
                         {/* Category */}
                         <td className="px-4 py-4">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+                          <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
                             {product.category}
                           </span>
                         </td>
