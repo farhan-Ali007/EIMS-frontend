@@ -260,8 +260,8 @@ const Products = () => {
               <div>
                 <h3 className="font-bold text-rose-700">Low Stock Alert!</h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  {lowStockProducts.length} product(s) are running low on stock:
-                  <span className="font-medium"> {lowStockProducts.map(p => p.name).join(', ')}</span>
+                  {lowStockProducts.length} product(s) are running low on stock
+                  {/* <span className="font-medium"> {lowStockProducts.map(p => p.name).join(', ')}</span> */}
                 </p>
               </div>
             </div>
