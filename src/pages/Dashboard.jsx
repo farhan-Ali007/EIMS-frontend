@@ -462,7 +462,7 @@ const Dashboard = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-sm text-gray-600">{product.lowStockAlert} units</div>
+                          <div className="text-sm text-gray-600">{product.lowStockAlert || 10} units</div>
                         </td>
                       </tr>
                     ))}
