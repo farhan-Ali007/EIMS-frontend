@@ -251,7 +251,23 @@ const Products = () => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-
+   {/* Low Stock Alert */}
+      {lowStockProducts.length > 0 && (
+        <Card className="border-l-4 border-rose-500">
+          <CardBody>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="text-rose-500 flex-shrink-0" size={24} />
+              <div>
+                <h3 className="font-bold text-rose-700">Low Stock Alert!</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {lowStockProducts.length} product(s) are running low on stock:
+                  <span className="font-medium"> {lowStockProducts.map(p => p.name).join(', ')}</span>
+                </p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      )}
       <Card className="shadow-lg border-0">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
           <div className="flex items-center justify-between">
@@ -309,23 +325,6 @@ const Products = () => {
         </CardBody>
       </Card>
 
-      {/* Low Stock Alert */}
-      {lowStockProducts.length > 0 && (
-        <Card className="border-l-4 border-rose-500">
-          <CardBody>
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="text-rose-500 flex-shrink-0" size={24} />
-              <div>
-                <h3 className="font-bold text-rose-700">Low Stock Alert!</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {lowStockProducts.length} product(s) are running low on stock:
-                  <span className="font-medium"> {lowStockProducts.map(p => p.name).join(', ')}</span>
-                </p>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      )}
 
       {/* Products Display */}
       <Card className="shadow-lg border-0 overflow-hidden">
