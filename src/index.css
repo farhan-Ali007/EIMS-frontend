@@ -63,9 +63,15 @@ box-sizing: border-box;
     margin: 0 auto;
     box-shadow: none;
     border-radius: 0;
-    padding: 32px 48px;
+    padding: 18px 26px;
     line-height: 1.6;
     background: #ffffff;
+  }
+
+  /* Make bill content fully visible on paper (no inner scrollbars) */
+  .print-root #bill-content {
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   .print-root h1,
@@ -76,13 +82,29 @@ box-sizing: border-box;
 
   /* Extra spacing between top header, info blocks, items table, summary, and footer */
   .print-root #bill-content > div {
-    margin-bottom: 16px;
+    margin-bottom: 6px;
   }
 
   .print-root table th,
   .print-root table td {
-    padding-top: 8px;
-    padding-bottom: 8px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+    font-size: 11px;
+  }
+
+  /* Remove table and box borders for a cleaner printed invoice */
+  .print-root table,
+  .print-root table th,
+  .print-root table td {
+    border: none !important;
+  }
+
+  .print-root .border,
+  .print-root .border-b,
+  .print-root .border-t,
+  .print-root .border-l,
+  .print-root .border-r {
+    border-color: transparent !important;
   }
 
   /* Bill watermark */
@@ -90,12 +112,13 @@ box-sizing: border-box;
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%) rotate(-30deg);
-    font-size: 56px;
-    font-weight: 700;
-    color: rgba(148, 163, 184, 0.25); /* slate-400 */
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
+    transform: translate(-50%, -50%) rotate(-32deg);
+    font-size: 64px;
+    font-weight: 600;
+    font-family: "Segoe Script", "Brush Script MT", cursive;
+    color: rgba(148, 163, 184, 0.12); /* slate-400, lighter for print */
+    letter-spacing: 0.08em;
+    text-transform: none;
     white-space: nowrap;
     pointer-events: none;
     z-index: 0;

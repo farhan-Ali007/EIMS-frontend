@@ -110,40 +110,7 @@ useEffect(() => {
   };
 
   const handlePrintBill = () => {
-    const printContent = document.getElementById('bill-content');
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Bill ${selectedBill.billNumber}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-            .bg-gradient-to-r { background: linear-gradient(to right, #059669, #2563eb); }
-            .text-white { color: white; }
-            .rounded-2xl { border-radius: 1rem; }
-            .p-6 { padding: 1.5rem; }
-            .mb-4 { margin-bottom: 1rem; }
-            .text-4xl { font-size: 2.25rem; }
-            .font-bold { font-weight: bold; }
-            .text-center { text-align: center; }
-            table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-            th, td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; }
-            th { background-color: #f5f5f5; }
-            .text-right { text-align: right; }
-            .text-emerald-600 { color: #059669; }
-            @media print {
-              body { margin: 0; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          ${printContent.innerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
+    window.print();
   };
 
   return (
