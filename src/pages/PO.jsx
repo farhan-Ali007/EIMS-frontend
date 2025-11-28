@@ -12,6 +12,7 @@ const PO = () => {
   const toast = useToast();
   const queryClient = useQueryClient();
 
+  const [showForm, setShowForm] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
   const [form, setForm] = useState({
@@ -113,17 +114,27 @@ const PO = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
             <Truck size={26} className="text-emerald-600" />
-            PO (Post Office)
+            Post Office
           </h1>
           <p className="text-gray-600 mt-1">Track parcels sent via post office with status and payment info.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowForm((prev) => !prev)}
+            className="shadow-sm flex items-center gap-2"
+          >
+            <Package size={18} />
+            {showForm ? 'Hide Form' : 'Add Parcel'}
+          </Button>
         </div>
       </div>
 
       {/* Form */}
+      {showForm && (
       <Card className="shadow-lg border-0 bg-white rounded-2xl overflow-visible">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-gray-800">
@@ -252,6 +263,7 @@ const PO = () => {
           </form>
         </CardBody>
       </Card>
+      )}
 
       {/* Filters + Table */}
       <Card className="shadow-lg border-0 bg-white rounded-2xl overflow-hidden">

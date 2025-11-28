@@ -12,7 +12,8 @@ import {
   X,
   Settings,
   Wallet,
-  Truck
+  Truck,
+  RotateCcw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -24,6 +25,7 @@ const Layout = () => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [sidebarTooltip, setSidebarTooltip] = useState({ visible: false, label: '', top: 0 });
   const { user, logout, role } = useAuth();
   const { notifications, dismissNotification, clearAllNotifications } = useNotifications();
 
@@ -41,7 +43,7 @@ const Layout = () => {
     { path: '/billing', icon: Receipt, label: 'Billing', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/sales', icon: ShoppingCart, label: 'Sales', roles: ['admin', 'superadmin'] },
     { path: '/expenses', icon: Wallet, label: 'Expenses', roles: ['admin', 'superadmin', 'manager'] },
-    { path: '/returns', icon: Package, label: 'Returns', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/returns', icon: RotateCcw, label: 'Returns', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/po', icon: Truck, label: 'PO', roles: ['admin', 'superadmin', 'manager'] },
   ];
 
@@ -92,8 +94,25 @@ const Layout = () => {
                 key={item.path}
                 to={item.path}
                 className={`${layoutClasses} rounded-lg transition-all ${baseClasses}`}
+                onMouseEnter={(e) => {
+                  if (!isSidebarOpen) {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setSidebarTooltip({
+                      visible: true,
+                      label: item.label,
+                      top: rect.top + rect.height / 2
+                    });
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (!isSidebarOpen) {
+                    setSidebarTooltip((prev) => ({ ...prev, visible: false }));
+                  }
+                }}
               >
-                <item.icon size={20} />
+                <div className="relative flex items-center justify-center">
+                  <item.icon size={20} />
+                </div>
                 {isSidebarOpen && <span className="font-medium">{item.label}</span>}
               </Link>
             );
@@ -192,6 +211,18 @@ const Layout = () => {
         isOpen={passwordModalOpen} 
         onClose={() => setPasswordModalOpen(false)} 
       />
+
+      {/* Collapsed sidebar tooltip (fixed, outside sidebar) */}
+      {!isSidebarOpen && sidebarTooltip.visible && (
+        <div
+          className="fixed left-20 z-50 -translate-y-1/2"
+          style={{ top: sidebarTooltip.top }}
+        >
+          <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-900 text-white shadow-lg whitespace-nowrap">
+            {sidebarTooltip.label}
+          </span>
+        </div>
+      )}
     </div>
   );
 };

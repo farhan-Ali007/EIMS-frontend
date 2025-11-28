@@ -140,6 +140,51 @@ const Customers = () => {
         </div>
       </div>
 
+            {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardBody>
+            <div className="flex items-center gap-3">
+              <div className="bg-slate-100 p-3 rounded-lg">
+                <UserCircle className="text-slate-600" size={24} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Total Customers</p>
+                <p className="text-2xl font-bold text-gray-800">{customers.length}</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+        
+        <Card>
+          <CardBody>
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-100 p-3 rounded-lg">
+                <Globe className="text-emerald-600" size={24} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Online Customers</p>
+                <p className="text-2xl font-bold text-gray-800">{onlineCount}</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+        
+        <Card>
+          <CardBody>
+            <div className="flex items-center gap-3">
+              <div className="bg-teal-100 p-3 rounded-lg">
+                <MapPin className="text-teal-600" size={24} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Offline Customers</p>
+                <p className="text-2xl font-bold text-gray-800">{offlineCount}</p>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      </div>
+
       {/* Tabs and Search */}
       <Card className="shadow-lg border-0">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
@@ -185,6 +230,7 @@ const Customers = () => {
               </div>
             </div>
             
+            
             <div className="flex items-center gap-3">
               <SearchBar
                 value={searchQuery}
@@ -202,51 +248,6 @@ const Customers = () => {
           )}
         </CardHeader>
       </Card>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardBody>
-            <div className="flex items-center gap-3">
-              <div className="bg-slate-100 p-3 rounded-lg">
-                <UserCircle className="text-slate-600" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Customers</p>
-                <p className="text-2xl font-bold text-gray-800">{customers.length}</p>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-        
-        <Card>
-          <CardBody>
-            <div className="flex items-center gap-3">
-              <div className="bg-emerald-100 p-3 rounded-lg">
-                <Globe className="text-emerald-600" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Online Customers</p>
-                <p className="text-2xl font-bold text-gray-800">{onlineCount}</p>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-        
-        <Card>
-          <CardBody>
-            <div className="flex items-center gap-3">
-              <div className="bg-teal-100 p-3 rounded-lg">
-                <MapPin className="text-teal-600" size={24} />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Offline Customers</p>
-                <p className="text-2xl font-bold text-gray-800">{offlineCount}</p>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
 
       {/* Customers Table */}
       <Card className="shadow-lg border-0 overflow-hidden">

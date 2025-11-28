@@ -77,7 +77,7 @@ const BillReceipt = ({ bill, onClose, onPrint }) => {
           </div>
 
           {/* Bill & Customer Information */}
-          <div className="px-8 pt-6 pb-4 bg-white">
+          <div className="px-8 pt-6 pb-4 bg-white bill-info-section">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
               {/* Bill Details Card - simple form style */}
@@ -124,7 +124,7 @@ const BillReceipt = ({ bill, onClose, onPrint }) => {
           </div>
 
           {/* Items Table - compact invoice style */}
-          <div className="px-8 pt-2 pb-4 bg-white">
+          <div className="px-8 pt-2 pb-4 bg-white items-section">
             <div className="bg-white  shadow-sm border border-gray-300 overflow-hidden mb-6">
               <div className="bg-white text-black font-bold px-5 py-3">
                 <div className="flex items-center justify-center ">

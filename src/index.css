@@ -19,10 +19,12 @@
   animation: slide-in 0.3s ease-out;
 }
 
+html,
 body {
-margin: 0%;
-padding: 0%;
-box-sizing: border-box;
+  margin: 0%;
+  padding: 0%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 /* Sidebar thin scrollbar */
@@ -83,6 +85,16 @@ box-sizing: border-box;
   /* Extra spacing between top header, info blocks, items table, summary, and footer */
   .print-root #bill-content > div {
     margin-bottom: 6px;
+  }
+
+  /* Specifically tighten gap between Bill Info and Invoice Items sections */
+  .print-root .bill-info-section {
+    margin-bottom: 2px !important;
+    padding-bottom: 2px !important;
+  }
+
+  .print-root .items-section {
+    padding-top: 2px !important;
   }
 
   .print-root table th,

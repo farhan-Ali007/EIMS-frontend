@@ -10,6 +10,7 @@ import { useToast } from '../context/ToastContext';
 
 const Returns = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     productId: '',
     quantity: '',
@@ -120,7 +121,7 @@ const Returns = () => {
       {/* Header */}
       <Card className="shadow-lg border-0">
         <CardHeader className="bg-gradient-to-r from-emerald-50 to-blue-50 border-b">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-2">
                 <Package className="text-emerald-600" size={20} />
@@ -130,28 +131,38 @@ const Returns = () => {
                 Log returned products and automatically update stock levels
               </p>
             </div>
-            <Button
-              variant="secondary"
-              onClick={() => refetchReturns()}
-              className="shadow-sm flex items-center gap-2"
-            >
-              <RefreshCw size={16} />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => refetchReturns()}
+                className="shadow-sm flex items-center gap-2"
+              >
+                <RefreshCw size={16} />
+                Refresh
+              </Button>
+              <Button
+                onClick={() => setShowForm((prev) => !prev)}
+                className="shadow-sm flex items-center gap-2"
+              >
+                <ArrowUpRight size={16} />
+                {showForm ? 'Hide Form' : 'Add Return'}
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
 
       {/* New Return Form */}
-      <Card className="shadow-md border-0">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-            <ArrowUpRight size={18} className="text-emerald-600" />
-            Add New Return
-          </CardTitle>
-        </CardHeader>
-        <CardBody>
-          <form onSubmit={handleSubmit} className="space-y-4">
+      {showForm && (
+        <Card className="shadow-md border-0">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <ArrowUpRight size={18} className="text-emerald-600" />
+              Add New Return
+            </CardTitle>
+          </CardHeader>
+          <CardBody>
+            <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
@@ -270,6 +281,7 @@ const Returns = () => {
           </form>
         </CardBody>
       </Card>
+      )}
 
       {/* Returns List */}
       <Card className="shadow-md border-0">
