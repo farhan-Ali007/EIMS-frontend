@@ -70,6 +70,11 @@ body {
     background: #ffffff;
   }
 
+  /* Explicitly hide elements marked as no-print inside the printable area */
+  .no-print {
+    display: none !important;
+  }
+
   /* Make bill content fully visible on paper (no inner scrollbars) */
   .print-root #bill-content {
     max-height: none !important;
@@ -84,12 +89,13 @@ body {
 
   /* Extra spacing between top header, info blocks, items table, summary, and footer */
   .print-root #bill-content > div {
-    margin-bottom: 6px;
+    margin-bottom: 3px;
   }
 
   /* Specifically tighten gap between Bill Info and Invoice Items sections */
   .print-root .bill-info-section {
     margin-bottom: 2px !important;
+    padding-top: 2px !important;
     padding-bottom: 2px !important;
   }
 
@@ -117,6 +123,13 @@ body {
   .print-root .border-l,
   .print-root .border-r {
     border-color: transparent !important;
+  }
+
+  /* But keep visible dashed bottom border for summary dotted lines */
+  .print-root .invoice-dotted-line {
+    border-bottom-color: rgba(148, 163, 184, 1) !important; /* slate-400 */
+    border-bottom-style: dashed !important;
+    border-bottom-width: 1px !important;
   }
 
   /* Bill watermark */

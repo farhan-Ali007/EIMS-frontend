@@ -99,10 +99,10 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
         <div id="bill-content" className="relative overflow-y-auto max-h-[calc(95vh-120px)] bg-white">
           <div className="bill-watermark">Etimad Mart</div>
           {/* Company Header (compact) */}
-          <div className="bg-gray-50 px-8 pt-6 pb-4 border-b border-gray-300">
-            <div className="text-center mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-1 tracking-wide">ETIMAD MART</h1>
-              <p className="text-sm text-gray-700 mb-3">Retail &amp; Mart Billing Invoice</p>
+          <div className="bg-gray-50 px-8 pt-3 pb-2 border-b border-gray-300">
+            <div className="text-center mb-2">
+              <h1 className="text-xl font-bold text-gray-900 mb-1 tracking-wide">ETIMAD MART</h1>
+              <p className="text-xs text-gray-700 mb-1">Retail &amp; Mart Billing Invoice</p>
 
               {/* Contact Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-2xl mx-auto text-xs">
@@ -123,8 +123,8 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
           </div>
 
           {/* Bill & Customer Information */}
-          <div className="px-8 pt-6 pb-4 bg-white bill-info-section">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="px-8 pt-3 pb-2 bg-white bill-info-section">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
 
               {/* Bill Details Card - simple form style */}
               <div className="bg-gray-50  p-4  text-xs">
@@ -221,7 +221,7 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
           {/* Bill Summary - bottom band similar to Canva style */}
           <div className="px-8 pb-6 pt-2">
             <div className="bg-gray-50 border border-gray-300  p-4 text-xs mb-3">
-              <div className="flex justify-between mb-1">
+              <div className="flex justify-between mb-1 items-center">
                 <span className="text-gray-700">Total</span>
                 <span className="font-semibold text-gray-900">{formatCurrency(bill.total)}</span>
               </div>
@@ -232,26 +232,18 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
                 </div>
               )}
               <div className="flex justify-between mt-2 items-center">
-                <span className="text-gray-700">Amount Paid (System)</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(alreadyPaid)}</span>
+                <span className="text-gray-700">Amount Paid</span>
+                <span className="flex-1 ml-4 border-b border-dashed border-gray-400 h-4 invoice-dotted-line" />
               </div>
               <div className="flex justify-between mt-1 items-center">
-                <span className="text-gray-700">Remaining (System)</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(remainingBefore)}</span>
-              </div>
-              <div className="flex justify-between mt-3 items-center">
-                <span className="text-gray-700">Amount Paid (Customer Copy)</span>
-                <span className="flex-1 ml-4 border-b border-dashed border-gray-400 h-4" />
-              </div>
-              <div className="flex justify-between mt-2 items-center">
-                <span className="text-gray-700">Remaining Balance (Customer Copy)</span>
-                <span className="flex-1 ml-4 border-b border-dashed border-gray-400 h-4" />
+                <span className="text-gray-700">Remaining</span>
+                <span className="flex-1 ml-4 border-b border-dashed border-gray-400 h-4 invoice-dotted-line" />
               </div>
             </div>
 
-            <div className="bg-gray-700 text-white  py-3 px-6 flex justify-between items-center shadow-md">
-              <span className="text-sm font-medium uppercase tracking-wide">Total</span>
-              <span className="text-xl font-bold">{formatCurrency(bill.total)}</span>
+            <div className="bg-gray-700 text-white py-2 px-6 flex justify-between items-center shadow-md text-sm">
+              <span className="font-medium uppercase tracking-wide whitespace-nowrap">Total</span>
+              <span className="font-bold whitespace-nowrap">{formatCurrency(bill.total)}</span>
             </div>
           </div>
 
@@ -326,17 +318,13 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
 
           {/* Footer */}
           <div className="mt-4 border-t border-slate-200 pt-4 bg-white rounded-2xl px-6 pb-5">
-            <div className="flex flex-col items-center gap-2 text-xs text-slate-600 md:flex-row md:justify-center md:gap-6">
-              <p className="text-sm md:text-base font-semibold text-emerald-600">
+            <div className="flex flex-row items-center justify-center gap-3 text-[11px] text-slate-600 whitespace-nowrap">
+              <p className="font-semibold text-emerald-600">
                 Thank you for your business!
               </p>
               <p>📞 For support: +92307-1111832</p>
               <p>🌐 Visit: www.etimadmart.com</p>
             </div>
-            {/* <div className="mt-4 text-[10px] text-slate-500 border-t border-slate-200 pt-3">
-              <p>This is a computer-generated receipt and does not require a signature.</p>
-              <p>Generated on {formatDate(new Date())}</p>
-            </div> */}
           </div>
         </div>
       </div>
