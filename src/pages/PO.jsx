@@ -135,134 +135,134 @@ const PO = () => {
 
       {/* Form */}
       {showForm && (
-      <Card className="shadow-lg border-0 bg-white rounded-2xl overflow-visible">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-gray-800">
-            <Package size={20} />
-            New Parcel Record
-          </CardTitle>
-        </CardHeader>
-        <CardBody className="space-y-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Product */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
-                <input
-                  type="text"
-                  value={productSearch}
-                  onChange={(e) => setProductSearch(e.target.value)}
-                  placeholder="Search by name, model, or category..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                />
-                {productSearch && filteredProducts.length > 0 && (
-                  <div className="mt-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-lg text-sm">
-                    {filteredProducts.map((p) => (
-                      <button
-                        type="button"
-                        key={p._id}
-                        onClick={() => {
-                          setSelectedProductId(p._id);
-                          setProductSearch(`${p.name} (${p.model})`);
-                        }}
-                        className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0"
-                      >
-                        <div className="font-medium text-gray-900">{p.name}</div>
-                        <div className="text-xs text-gray-600">Model: {p.model} • {p.category}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+        <Card className="shadow-lg border-0 bg-white rounded-2xl overflow-visible">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-gray-800">
+              <Package size={20} />
+              New Parcel Record
+            </CardTitle>
+          </CardHeader>
+          <CardBody className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Product */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Search by name, model, or category..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                  {productSearch && filteredProducts.length > 0 && (
+                    <div className="mt-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-lg text-sm">
+                      {filteredProducts.map((p) => (
+                        <button
+                          type="button"
+                          key={p._id}
+                          onClick={() => {
+                            setSelectedProductId(p._id);
+                            setProductSearch(`${p.name} (${p.model})`);
+                          }}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">{p.name}</div>
+                          <div className="text-xs text-gray-600">Model: {p.model} • {p.category}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Customer Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+                  <input
+                    type="text"
+                    value={form.customerName}
+                    onChange={(e) => setForm({ ...form, customerName: e.target.value })}
+                    placeholder="Enter customer name for this parcel"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    required
+                  />
+                </div>
+
+                {/* Tracking number */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
+                  <input
+                    type="text"
+                    value={form.trackingNumber}
+                    onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    placeholder="Enter tracking ID"
+                    required
+                  />
+                </div>
+
+                {/* Address */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                  <textarea
+                    value={form.address}
+                    onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    rows={2}
+                    placeholder="Customer address for this parcel"
+                    required
+                  />
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    <option value="processing">Processing</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="return">Return</option>
+                  </select>
+                </div>
+
+                {/* Payment */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Payment</label>
+                  <select
+                    value={form.paymentStatus}
+                    onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  >
+                    <option value="unpaid">Unpaid</option>
+                    <option value="paid">Paid</option>
+                  </select>
+                </div>
+
+                {/* Notes */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                  <input
+                    type="text"
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    placeholder="Any extra info e.g. courier, special instructions"
+                  />
+                </div>
               </div>
 
-              {/* Customer Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
-                <input
-                  type="text"
-                  value={form.customerName}
-                  onChange={(e) => setForm({ ...form, customerName: e.target.value })}
-                  placeholder="Enter customer name for this parcel"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  required
-                />
+              <div className="flex justify-end">
+                <Button type="submit" className="flex items-center gap-2">
+                  <CheckCircle size={18} />
+                  Save Parcel
+                </Button>
               </div>
-
-              {/* Tracking number */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
-                <input
-                  type="text"
-                  value={form.trackingNumber}
-                  onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  placeholder="Enter tracking ID"
-                  required
-                />
-              </div>
-
-              {/* Address */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                <textarea
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  rows={2}
-                  placeholder="Customer address for this parcel"
-                  required
-                />
-              </div>
-
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                >
-                  <option value="processing">Processing</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="return">Return</option>
-                </select>
-              </div>
-
-              {/* Payment */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Payment</label>
-                <select
-                  value={form.paymentStatus}
-                  onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                >
-                  <option value="unpaid">Unpaid</option>
-                  <option value="paid">Paid</option>
-                </select>
-              </div>
-
-              {/* Notes */}
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
-                <input
-                  type="text"
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  placeholder="Any extra info e.g. courier, special instructions"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <Button type="submit" className="flex items-center gap-2">
-                <CheckCircle size={18} />
-                Save Parcel
-              </Button>
-            </div>
-          </form>
-        </CardBody>
-      </Card>
+            </form>
+          </CardBody>
+        </Card>
       )}
 
       {/* Filters + Table */}
@@ -345,24 +345,22 @@ const PO = () => {
                       </td>
                       <td className="px-4 py-2 text-center">
                         <span
-                          className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
-                            p.status === 'delivered'
+                          className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${p.status === 'delivered'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : p.status === 'return'
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200'
-                          }`}
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : 'bg-amber-50 text-amber-700 border border-amber-200'
+                            }`}
                         >
                           {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
                         </span>
                       </td>
                       <td className="px-4 py-2 text-center">
                         <span
-                          className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
-                            p.paymentStatus === 'paid'
+                          className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${p.paymentStatus === 'paid'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : 'bg-slate-50 text-slate-700 border border-slate-200'
-                          }`}
+                            }`}
                         >
                           {p.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
                         </span>

@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Calendar, Phone, Mail, MapPin, Hash, User, Package, Receipt, Download, Share2, CheckCircle, Clock, X } from 'lucide-react';
+import { addBillPayment } from '../services/api';
+import { useToast } from '../context/ToastContext';
 
-const BillReceipt = ({ bill, onClose, onPrint }) => {
+const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
+  const toast = useToast();
+  const [paidNow, setPaidNow] = useState('');
+  const [note, setNote] = useState('');
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
+
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-PK', {
       year: 'numeric',
@@ -14,6 +21,45 @@ const BillReceipt = ({ bill, onClose, onPrint }) => {
 
   const formatCurrency = (amount) => {
     return `Rs. ${Number(amount || 0).toLocaleString('en-PK')}`;
+  };
+
+  const alreadyPaid = Number(bill.amountPaid || 0);
+  const remainingBefore = bill.remainingAmount != null
+    ? Number(bill.remainingAmount || 0)
+    : Math.max(0, Number(bill.total || 0) - alreadyPaid);
+  const numericPaidNow = Number(paidNow || 0);
+  const remainingAfter = Math.max(0, remainingBefore - (Number.isNaN(numericPaidNow) ? 0 : numericPaidNow));
+
+  const handleSavePayment = async () => {
+    const amount = Number(paidNow || 0);
+    if (!amount || amount <= 0) {
+      toast.error('Please enter a valid payment amount greater than 0');
+      return;
+    }
+
+    if (amount > remainingBefore) {
+      toast.error('Payment cannot be more than current remaining balance');
+      return;
+    }
+
+    try {
+      setIsSavingPayment(true);
+      const response = await addBillPayment(bill._id, { amount, note: note.trim() });
+      const updatedBill = response.data;
+
+      toast.success('Payment recorded successfully');
+      setPaidNow('');
+      setNote('');
+
+      if (onPaymentUpdated) {
+        onPaymentUpdated(updatedBill);
+      }
+    } catch (error) {
+      console.error('Error saving payment:', error);
+      toast.error(error.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setIsSavingPayment(false);
+    }
   };
 
   return (
@@ -186,11 +232,19 @@ const BillReceipt = ({ bill, onClose, onPrint }) => {
                 </div>
               )}
               <div className="flex justify-between mt-2 items-center">
-                <span className="text-gray-700">Amount Paid</span>
+                <span className="text-gray-700">Amount Paid (System)</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(alreadyPaid)}</span>
+              </div>
+              <div className="flex justify-between mt-1 items-center">
+                <span className="text-gray-700">Remaining (System)</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(remainingBefore)}</span>
+              </div>
+              <div className="flex justify-between mt-3 items-center">
+                <span className="text-gray-700">Amount Paid (Customer Copy)</span>
                 <span className="flex-1 ml-4 border-b border-dashed border-gray-400 h-4" />
               </div>
               <div className="flex justify-between mt-2 items-center">
-                <span className="text-gray-700">Remaining Balance</span>
+                <span className="text-gray-700">Remaining Balance (Customer Copy)</span>
                 <span className="flex-1 ml-4 border-b border-dashed border-gray-400 h-4" />
               </div>
             </div>
@@ -198,6 +252,67 @@ const BillReceipt = ({ bill, onClose, onPrint }) => {
             <div className="bg-gray-700 text-white  py-3 px-6 flex justify-between items-center shadow-md">
               <span className="text-sm font-medium uppercase tracking-wide">Total</span>
               <span className="text-xl font-bold">{formatCurrency(bill.total)}</span>
+            </div>
+          </div>
+
+          {/* Payments Management (system only, not printed) */}
+          <div className="px-8 pb-6 no-print">
+            <div className="bg-white border border-emerald-200 rounded-2xl p-4 text-xs shadow-sm">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Manage Payments</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4 text-xs">
+                <div>
+                  <div className="text-gray-500">Bill Total</div>
+                  <div className="font-semibold text-gray-900">{formatCurrency(bill.total)}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500">Already Paid</div>
+                  <div className="font-semibold text-emerald-700">{formatCurrency(alreadyPaid)}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500">Remaining Before</div>
+                  <div className="font-semibold text-red-600">{formatCurrency(remainingBefore)}</div>
+                </div>
+                <div>
+                  <div className="text-gray-500">Remaining After</div>
+                  <div className={`font-semibold ${remainingAfter > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                    {formatCurrency(remainingAfter)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Paid Now (PKR)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={paidNow}
+                    onChange={(e) => setPaidNow(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-xs"
+                    placeholder="e.g. 2000"
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Note (optional)</label>
+                  <input
+                    type="text"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-xs"
+                    placeholder="Cash / Bank / Reference..."
+                  />
+                </div>
+                <div className="flex justify-end sm:justify-start mt-2 sm:mt-0">
+                  <button
+                    type="button"
+                    onClick={handleSavePayment}
+                    disabled={isSavingPayment}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-lg text-xs font-medium shadow-sm flex items-center gap-2"
+                  >
+                    {isSavingPayment ? 'Saving...' : 'Save Payment'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 

@@ -13,7 +13,8 @@ import {
   Settings,
   Wallet,
   Truck,
-  RotateCcw
+  RotateCcw,
+  DollarSign
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -43,6 +44,7 @@ const Layout = () => {
     { path: '/billing', icon: Receipt, label: 'Billing', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/sales', icon: ShoppingCart, label: 'Sales', roles: ['admin', 'superadmin'] },
     { path: '/expenses', icon: Wallet, label: 'Expenses', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/income', icon: DollarSign, label: 'Income', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/returns', icon: RotateCcw, label: 'Returns', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/po', icon: Truck, label: 'PO', roles: ['admin', 'superadmin', 'manager'] },
   ];

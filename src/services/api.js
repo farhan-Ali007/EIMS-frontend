@@ -98,11 +98,16 @@ export const updateBillStatus = (id, status) => api.patch(`/bills/${id}/status`,
 export const deleteBill = (id) => api.delete(`/bills/${id}`);
 export const getCustomerHistory = (customerId, params) => api.get(`/bills/customer/${customerId}/history`, { params });
 export const getBillingStats = () => api.get('/bills/stats/overview');
+export const addBillPayment = (id, data) => api.post(`/bills/${id}/payments`, data);
 
 // Expenses
 export const getExpenses = (params) => api.get('/expenses', { params });
 export const createExpense = (data) => api.post('/expenses', data);
 export const getExpenseStats = () => api.get('/expenses/stats/overview');
+
+// Income
+export const getIncomes = (params) => api.get('/incomes', { params });
+export const createIncome = (data) => api.post('/incomes', data);
 
 // Admin management
 export const getAdmins = () => api.get('/admins');

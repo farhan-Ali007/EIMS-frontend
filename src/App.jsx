@@ -17,6 +17,7 @@ import Customers from './pages/Customers';
 import Billing from './pages/Billing';
 import Sales from './pages/Sales';
 import Expenses from './pages/Expenses';
+import Income from './pages/Income';
 import Returns from './pages/Returns';
 import PO from './pages/PO';
 import SellerDashboard from './pages/SellerDashboard';
@@ -53,6 +54,7 @@ const App = () => {
                 <Route path="billing" element={<Billing />} />
                 <Route path="sales" element={<Sales />} />
                 <Route path="expenses" element={<Expenses />} />
+                <Route path="income" element={<Income />} />
                 <Route path="returns" element={<Returns />} />
                 <Route path="po" element={<PO />} />
               </Route>

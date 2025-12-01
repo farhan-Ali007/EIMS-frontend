@@ -1,5 +1,5 @@
 import React, { useState , useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBills, getBillingStats } from '../services/api';
 import BillReceipt from './BillReceipt';
 import { 
@@ -30,6 +30,8 @@ const BillingHistory = () => {
     endDate: ''
   });
   const [page, setPage] = useState(1);
+
+  const queryClient = useQueryClient();
 
   const {
     data: billsResponse,
@@ -72,6 +74,13 @@ useEffect(() => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handlePaymentUpdated = (updatedBill) => {
+    setBills((prev) => prev.map((b) => (b._id === updatedBill._id ? updatedBill : b)));
+    setSelectedBill(updatedBill);
+    // Refresh stats so daily/monthly numbers and any aggregates stay accurate
+    queryClient.invalidateQueries({ queryKey: ['billingStats'] });
   };
 
   const formatCurrency = (amount) => {
@@ -324,6 +333,7 @@ useEffect(() => {
             setSelectedBill(null);
           }}
           onPrint={handlePrintBill}
+          onPaymentUpdated={handlePaymentUpdated}
         />
       )}
     </div>

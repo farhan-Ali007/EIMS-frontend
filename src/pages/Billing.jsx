@@ -165,6 +165,7 @@ const Billing = () => {
         category: product.category || 'Uncategorized',
         selectedPriceType: 'retailPrice',
         selectedPrice: unitPrice,
+        originalPrice: Number(product.originalPrice) || 0,
         quantity: qty,
         stock: Number(product.stock) || 0
       };
@@ -725,6 +726,15 @@ const Billing = () => {
                             onChange={(e) => updateItemPrice(item.productId, e.target.value)}
                             className="w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           />
+                          {Number(item.originalPrice || 0) > 0 && Number(item.selectedPrice || 0) < Number(item.originalPrice || 0) && (
+                            <div className="mt-1 flex items-center gap-1 text-[11px] text-red-600">
+                              <AlertTriangle size={12} className="shrink-0" />
+                              <span>
+                                Entered price (Rs. {Number(item.selectedPrice || 0).toLocaleString('en-PK')}) is lower than original price
+                                (Rs. {Number(item.originalPrice || 0).toLocaleString('en-PK')}).
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Quantity Controls */}
