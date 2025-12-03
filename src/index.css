@@ -121,6 +121,9 @@ body {
     padding: 18px 26px;
     line-height: 1.6;
     background: #ffffff;
+    /* Allow content to naturally flow across multiple printed pages */
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   /* Explicitly hide elements marked as no-print inside the printable area */
