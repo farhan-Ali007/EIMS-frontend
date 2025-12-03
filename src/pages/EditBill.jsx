@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBill, getProducts, getCustomers, updateBill } from '../services/api';
 import Button from '../components/Button';
 import { AlertTriangle, ArrowLeft, Save, ShoppingCart } from 'lucide-react';
+import SearchBar from '../components/SearchBar';
 
 const EditBill = () => {
   const { id } = useParams();
@@ -19,6 +20,8 @@ const EditBill = () => {
   const [selectedProductId, setSelectedProductId] = useState('');
   const [newLineQuantity, setNewLineQuantity] = useState(1);
   const [newLineUnitPrice, setNewLineUnitPrice] = useState('');
+  const [productSearch, setProductSearch] = useState('');
+  const [showProductSearch, setShowProductSearch] = useState(false);
 
   const { data: billData, isLoading: billLoading, error: billError } = useQuery({
     queryKey: ['bill', id],
@@ -35,6 +38,18 @@ const EditBill = () => {
       return response.data || [];
     }
   });
+
+  const filteredProducts = useMemo(() => {
+    const query = productSearch.toLowerCase();
+    if (!query) return products.slice(0, 15);
+    return products
+      .filter((p) =>
+        p.name.toLowerCase().includes(query) ||
+        p.model?.toLowerCase().includes(query) ||
+        p.category?.toLowerCase().includes(query)
+      )
+      .slice(0, 15);
+  }, [products, productSearch]);
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
@@ -304,25 +319,38 @@ const EditBill = () => {
           <div className="mb-4 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Add Product</label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                value={selectedProductId}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSelectedProductId(value);
-                  const prod = products.find((p) => p._id === value);
-                  if (prod) {
-                    setNewLineUnitPrice(prod.retailPrice || prod.originalPrice || '');
-                  }
-                }}
-              >
-                <option value="">Select product...</option>
-                {products.map((p) => (
-                  <option key={p._id} value={p._id}>
-                    {p.name} ({p.model})
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <SearchBar
+                  value={productSearch}
+                  onChange={(value) => {
+                    setProductSearch(value);
+                    setShowProductSearch(true);
+                  }}
+                  placeholder="Search products by name, model, or category..."
+                  onFocus={() => setShowProductSearch(true)}
+                />
+
+                {showProductSearch && filteredProducts.length > 0 && (
+                  <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
+                    {filteredProducts.map((p) => (
+                      <button
+                        key={p._id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedProductId(p._id);
+                          setProductSearch(`${p.name} (${p.model})`);
+                          setNewLineUnitPrice(p.retailPrice || p.originalPrice || '');
+                          setShowProductSearch(false);
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b last:border-b-0 border-gray-100"
+                      >
+                        <div className="font-medium text-gray-900">{p.name}</div>
+                        <div className="text-xs text-gray-600">Model: {p.model}  b {p.category}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Qty</label>
