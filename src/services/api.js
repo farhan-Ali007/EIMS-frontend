@@ -94,6 +94,7 @@ export const deleteCategory = (id) => api.delete(`/categories/${id}`);
 export const getBills = (params) => api.get('/bills', { params });
 export const getBill = (id) => api.get(`/bills/${id}`);
 export const createBill = (data) => api.post('/bills', data);
+export const updateBill = (id, data) => api.put(`/bills/${id}`, data);
 export const updateBillStatus = (id, status) => api.patch(`/bills/${id}/status`, { status });
 export const deleteBill = (id) => api.delete(`/bills/${id}`);
 export const getCustomerHistory = (customerId, params) => api.get(`/bills/customer/${customerId}/history`, { params });
@@ -120,5 +121,10 @@ export const createReturn = (data) => api.post('/returns', data);
 // Parcels (PO)
 export const getParcels = (params) => api.get('/parcels', { params });
 export const createParcel = (data) => api.post('/parcels', data);
+export const updateParcelStatus = (id, data) => api.patch(`/parcels/${id}/status`, data);
+
+// Book PO orders (Urdu chits)
+export const getBookPOs = (params) => api.get('/book-po', { params });
+export const createBookPO = (data) => api.post('/book-po', data);
 
 export default api;

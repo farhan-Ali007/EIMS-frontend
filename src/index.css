@@ -51,10 +51,63 @@ body {
     visibility: hidden;
   }
 
-  /* Show only the invoice card and its children */
+  /* Show the invoice modal (BillReceipt) and its content */
+  .print-wrapper,
+  .print-wrapper *,
   .print-root,
   .print-root * {
-    visibility: visible;
+    visibility: visible !important;
+  }
+
+  /* Also show Book PO print root when printing that page */
+  .book-po-print-root,
+  .book-po-print-root * {
+    visibility: visible !important;
+  }
+
+  /* Make Book PO chits start from top of page and centered */
+  .book-po-print-root {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin: 0 !important;
+    padding: 16px 24px;
+  }
+
+  .book-po-chit {
+    width: 100%;
+    max-width: 95%;
+    margin: 0 auto 16px auto;
+    box-sizing: border-box;
+    page-break-inside: avoid;
+    min-height: 46vh; /* slightly less than half page height so borders stay visible */
+    display: flex;
+    align-items: stretch;
+  }
+
+  .book-po-watermark {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-25deg);
+    font-size: 56px;
+    font-weight: 600;
+    font-family: "Georgia", "Times New Roman", serif;
+    color: rgba(148, 163, 184, 0.1);
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Normalize the overlay wrapper during print */
+  .print-wrapper {
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   .print-root {
@@ -87,12 +140,11 @@ body {
     margin-bottom: 8px;
   }
 
-  /* Extra spacing between top header, info blocks, items table, summary, and footer */
+  /* Extra spacing between sections */
   .print-root #bill-content > div {
     margin-bottom: 3px;
   }
 
-  /* Specifically tighten gap between Bill Info and Invoice Items sections */
   .print-root .bill-info-section {
     margin-bottom: 2px !important;
     padding-top: 2px !important;
@@ -110,7 +162,6 @@ body {
     font-size: 11px;
   }
 
-  /* Remove table and box borders for a cleaner printed invoice */
   .print-root table,
   .print-root table th,
   .print-root table td {
@@ -125,14 +176,12 @@ body {
     border-color: transparent !important;
   }
 
-  /* But keep visible dashed bottom border for summary dotted lines */
   .print-root .invoice-dotted-line {
-    border-bottom-color: rgba(148, 163, 184, 1) !important; /* slate-400 */
+    border-bottom-color: rgba(148, 163, 184, 1) !important;
     border-bottom-style: dashed !important;
     border-bottom-width: 1px !important;
   }
 
-  /* Bill watermark */
   .bill-watermark {
     position: absolute;
     top: 50%;
@@ -140,8 +189,8 @@ body {
     transform: translate(-50%, -50%) rotate(-32deg);
     font-size: 64px;
     font-weight: 600;
-    font-family: "Segoe Script", "Brush Script MT", cursive;
-    color: rgba(148, 163, 184, 0.12); /* slate-400, lighter for print */
+    font-family: "Georgia", "Times New Roman", serif;
+    color: rgba(148, 163, 184, 0.12);
     letter-spacing: 0.08em;
     text-transform: none;
     white-space: nowrap;

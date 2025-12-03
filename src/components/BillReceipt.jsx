@@ -20,7 +20,7 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
   };
 
   const formatCurrency = (amount) => {
-    return `Rs. ${Number(amount || 0).toLocaleString('en-PK')}`;
+    return ` ${Number(amount || 0).toLocaleString('en-PK')}`;
   };
 
   const alreadyPaid = Number(bill.amountPaid || 0);
@@ -29,6 +29,39 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
     : Math.max(0, Number(bill.total || 0) - alreadyPaid);
   const numericPaidNow = Number(paidNow || 0);
   const remainingAfter = Math.max(0, remainingBefore - (Number.isNaN(numericPaidNow) ? 0 : numericPaidNow));
+
+  const handlePrintInvoice = () => {
+    try {
+      const sourceNode = document.querySelector('.print-root');
+      if (!sourceNode) {
+        window.print?.();
+        return;
+      }
+      // Clone only the invoice content so printed layout matches the on-screen preview exactly
+      const printRoot = sourceNode.cloneNode(true);
+      printRoot.classList.add('print-root-clone');
+
+      // Remove any UI-only elements from the cloned node
+      printRoot.querySelectorAll('.no-print').forEach((el) => el.parentNode?.removeChild(el));
+
+      const originalHtml = document.body.innerHTML;
+
+      document.body.innerHTML = '';
+      document.body.appendChild(printRoot);
+
+      window.focus();
+      window.print?.();
+
+      // Restore original UI after printing
+      setTimeout(() => {
+        document.body.innerHTML = originalHtml;
+        window.location.reload();
+      }, 300);
+    } catch (err) {
+      console.error('Error printing invoice:', err);
+      window.print?.();
+    }
+  };
 
   const handleSavePayment = async () => {
     const amount = Number(paidNow || 0);
@@ -79,7 +112,7 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={onPrint}
+                onClick={handlePrintInvoice}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all duration-200 flex items-center gap-2 shadow-md hover:shadow-lg text-sm"
               >
                 <Download size={16} />
@@ -173,7 +206,7 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
           <div className="px-8 pt-2 pb-4 bg-white items-section">
             <div className="bg-white  shadow-sm border border-gray-300 overflow-hidden mb-6">
               <div className="bg-white text-black font-bold px-5 py-3">
-                <div className="flex items-center justify-center ">
+                <div className="flex items-center justify-center text-center">
                   {/* <div className="p-3 bg-black bg-opacity-20 rounded-xl">
                     <Package size={24} />
                   </div> */}
@@ -198,7 +231,7 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="px-3 py-2 align-top">
                           <div>
-                            <div className="font-semibold text-gray-900 text-xs">{item.name}-{item.model} | ({item.category})</div>
+                            <div className="font-semibold text-gray-900 text-xs">{item.name}-{item.model}</div>
                           </div>
                         </td>
                         <td className="px-3 py-2 text-center font-medium text-gray-800">
@@ -218,32 +251,31 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
             </div>
           </div>
 
-          {/* Bill Summary - bottom band similar to Canva style */}
+          {/* Bill Summary */}
           <div className="px-8 pb-6 pt-2">
-            <div className="bg-gray-50 border border-gray-300  p-4 text-xs mb-3">
-              <div className="flex justify-between mb-1 items-center">
-                <span className="text-gray-700">Total</span>
-                <span className="font-semibold text-gray-900">{formatCurrency(bill.total)}</span>
-              </div>
+            <div className="bg-gray-50 border border-gray-300 p-4 text-xs mb-3 space-y-1.5">
               {bill.discount > 0 && (
-                <div className="flex justify-between mb-1">
+                <div className="flex justify-between items-center">
                   <span className="text-gray-700">Discount ({bill.discountType === 'percentage' ? '%' : 'Fixed'})</span>
                   <span className="font-semibold text-gray-700">- {formatCurrency(bill.discount)}</span>
                 </div>
               )}
-              <div className="flex justify-between mt-2 items-center">
-                <span className="text-gray-700">Amount Paid</span>
-                <span className="flex-1 ml-4 border-b border-dashed border-gray-400 h-4 invoice-dotted-line" />
-              </div>
-              <div className="flex justify-between mt-1 items-center">
-                <span className="text-gray-700">Remaining</span>
-                <span className="flex-1 ml-4 border-b border-dashed border-gray-400 h-4 invoice-dotted-line" />
-              </div>
-            </div>
 
-            <div className="bg-gray-700 text-white py-2 px-6 flex justify-between items-center shadow-md text-sm">
-              <span className="font-medium uppercase tracking-wide whitespace-nowrap">Total</span>
-              <span className="font-bold whitespace-nowrap">{formatCurrency(bill.total)}</span>
+              {/* Totals row + dotted lines for paid / remaining */}
+              <div className="mt-2 pt-2 border-t border-gray-200 space-y-1.5 text-[11px]">
+                <div className="flex justify-between items-center w-full">
+                  <span className="text-gray-700">Total:</span>
+                  <span className="font-semibold text-gray-900">Rs.{formatCurrency(bill.total)}</span>
+                </div>
+                <div className="flex items-center mt-1">
+                  <span className="text-gray-700 mr-2">Amount Paid</span>
+                  <span className="flex-1 border-b border-dashed border-gray-400 h-4 invoice-dotted-line" />
+                </div>
+                <div className="flex items-center mt-1">
+                  <span className="text-gray-700 mr-2">Remaining</span>
+                  <span className="flex-1 border-b border-dashed border-gray-400 h-4 invoice-dotted-line" />
+                </div>
+              </div>
             </div>
           </div>
 

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getProducts, getParcels, createParcel } from '../services/api';
+import { getProducts, getParcels, createParcel, updateParcelStatus } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import SearchBar from '../components/SearchBar';
@@ -38,14 +38,24 @@ const PO = () => {
     }
   });
 
-  // Parcels list
-  const { data: parcels = [] } = useQuery({
-    queryKey: ['parcels'],
+  // Parcels list with server-side pagination & filters
+  const { data: parcelsResponse } = useQuery({
+    queryKey: ['parcels', { page: currentPage, tracking: filterTracking, status: filterStatus, paymentStatus: filterPayment }],
     queryFn: async () => {
-      const res = await getParcels();
-      return res.data || [];
+      const res = await getParcels({
+        page: currentPage,
+        limit: itemsPerPage,
+        tracking: filterTracking || undefined,
+        status: filterStatus || undefined,
+        paymentStatus: filterPayment || undefined,
+      });
+      return res.data;
     }
   });
+
+  const parcels = parcelsResponse?.data || [];
+  const totalParcels = parcelsResponse?.total || 0;
+  const totalPages = parcelsResponse?.totalPages || 1;
 
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products;
@@ -57,23 +67,21 @@ const PO = () => {
     );
   }, [products, productSearch]);
 
-  const filteredParcels = useMemo(() => {
-    return parcels.filter(p => {
-      const matchTracking = filterTracking
-        ? p.trackingNumber.toLowerCase().includes(filterTracking.toLowerCase())
-        : true;
-      const matchStatus = filterStatus ? p.status === filterStatus : true;
-      const matchPayment = filterPayment ? p.paymentStatus === filterPayment : true;
-      return matchTracking && matchStatus && matchPayment;
-    });
-  }, [parcels, filterTracking, filterStatus, filterPayment]);
+  // Parcels already paginated from backend
+  const filteredParcels = parcels;
+  const paginatedParcels = parcels;
 
-  const paginatedParcels = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredParcels.slice(start, start + itemsPerPage);
-  }, [filteredParcels, currentPage]);
-
-  const totalPages = Math.ceil(filteredParcels.length / itemsPerPage) || 1;
+  const handleUpdateStatus = async (parcelId, field, value) => {
+    try {
+      await updateParcelStatus(parcelId, { [field]: value });
+      await queryClient.invalidateQueries({ queryKey: ['parcels'] });
+      toast.success('Parcel updated');
+    } catch (error) {
+      console.error('Error updating parcel status:', error);
+      const msg = error.response?.data?.message || 'Failed to update parcel';
+      toast.error(msg);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -270,7 +278,7 @@ const PO = () => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Parcel Records</span>
-            <span className="text-sm text-gray-500">{filteredParcels.length} record(s)</span>
+            <span className="text-sm text-gray-500">{totalParcels} record(s)</span>
           </CardTitle>
         </CardHeader>
         <CardBody className="p-0">
@@ -344,26 +352,25 @@ const PO = () => {
                         </div>
                       </td>
                       <td className="px-4 py-2 text-center">
-                        <span
-                          className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${p.status === 'delivered'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : p.status === 'return'
-                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                                : 'bg-amber-50 text-amber-700 border border-amber-200'
-                            }`}
+                        <select
+                          value={p.status}
+                          onChange={(e) => handleUpdateStatus(p._id, 'status', e.target.value)}
+                          className="px-2 py-1 border border-gray-300 rounded-full text-xs font-semibold bg-white"
                         >
-                          {p.status.charAt(0).toUpperCase() + p.status.slice(1)}
-                        </span>
+                          <option value="processing">Processing</option>
+                          <option value="delivered">Delivered</option>
+                          <option value="return">Return</option>
+                        </select>
                       </td>
                       <td className="px-4 py-2 text-center">
-                        <span
-                          className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${p.paymentStatus === 'paid'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-slate-50 text-slate-700 border border-slate-200'
-                            }`}
+                        <select
+                          value={p.paymentStatus}
+                          onChange={(e) => handleUpdateStatus(p._id, 'paymentStatus', e.target.value)}
+                          className="px-2 py-1 border border-gray-300 rounded-full text-xs font-semibold bg-white"
                         >
-                          {p.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
-                        </span>
+                          <option value="unpaid">Unpaid</option>
+                          <option value="paid">Paid</option>
+                        </select>
                       </td>
                       <td className="px-4 py-2 text-xs text-gray-700">
                         {p.createdBy ? p.createdBy.username || p.createdBy.email : '-'}
@@ -381,7 +388,7 @@ const PO = () => {
             </table>
           </div>
 
-          {filteredParcels.length > itemsPerPage && (
+          {totalParcels > itemsPerPage && (
             <div className="p-4">
               <Pagination
                 currentPage={currentPage}

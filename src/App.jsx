@@ -1,28 +1,29 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { lazy } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ToastProvider } from './context/ToastContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import Layout from './components/Layout';
-// import ErrorBoundary from './components/ErrorBoundary';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Sellers from './pages/Sellers';
-import Customers from './pages/Customers';
-import Billing from './pages/Billing';
-import Sales from './pages/Sales';
-import Expenses from './pages/Expenses';
-import Income from './pages/Income';
-import Returns from './pages/Returns';
-import PO from './pages/PO';
-import SellerDashboard from './pages/SellerDashboard';
-import SellerPasswordChange from './pages/SellerPasswordChange';
-import AdminManagement from './pages/AdminManagement';
+const Login = lazy(()=>import('./pages/Login'));
+const Register = lazy(()=>import('./pages/Register'));
+const ForgotPassword = lazy(()=>import('./pages/ForgotPassword'));
+const ResetPassword = lazy(()=>import('./pages/ResetPassword'));
+const Dashboard = lazy(()=>import('./pages/Dashboard'));
+const Products = lazy(()=>import('./pages/Products'));
+const Sellers = lazy(()=>import('./pages/Sellers'));
+const Customers = lazy(()=>import('./pages/Customers'));
+const Billing = lazy(()=>import('./pages/Billing'));
+const EditBill = lazy(()=>import('./pages/EditBill'));
+const BookPO = lazy(()=>import('./pages/BookPO'));
+const Sales = lazy(()=>import('./pages/Sales'));
+const Expenses = lazy(()=>import('./pages/Expenses'));
+const Income = lazy(()=>import('./pages/Income'));
+const Returns = lazy(()=>import('./pages/Returns'));
+const PO = lazy(()=>import('./pages/PO'));
+const SellerDashboard = lazy(()=>import('./pages/SellerDashboard'));
+const SellerPasswordChange = lazy(()=>import('./pages/SellerPasswordChange'));
+const AdminManagement = lazy(()=>import('./pages/AdminManagement'));
 
 const App = () => {
   return (
@@ -52,6 +53,8 @@ const App = () => {
                 <Route path="sellers" element={<Sellers />} />
                 <Route path="customers" element={<Customers />} />
                 <Route path="billing" element={<Billing />} />
+                <Route path="billing/edit/:id" element={<EditBill />} />
+                <Route path="book-po" element={<BookPO />} />
                 <Route path="sales" element={<Sales />} />
                 <Route path="expenses" element={<Expenses />} />
                 <Route path="income" element={<Income />} />

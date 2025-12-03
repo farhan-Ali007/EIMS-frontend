@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getProducts, getCustomers, getSellers, createBill, getCustomerHistory } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
@@ -30,13 +31,14 @@ const Billing = () => {
   const [generatedBill, setGeneratedBill] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  
+
   // Refs for click-outside detection
   const customerSearchRef = useRef(null);
   const productSearchRef = useRef(null);
   const sellerSearchRef = useRef(null);
 
   const queryClient = useQueryClient();
+  const location = useLocation();
 
   const {
     data: products = [],
@@ -133,6 +135,13 @@ const Billing = () => {
     );
   }, [sellers, sellerSearch]);
 
+  // Respect navigation state for initial tab (e.g., from EditBill redirect)
+  useEffect(() => {
+    if (location.state && location.state.activeTab) {
+      setActiveTab(location.state.activeTab);
+    }
+  }, [location.state]);
+
   // Add product to bill via manual form (product + quantity + unit price)
   const addProductToBill = () => {
     const product = products.find((p) => p._id === selectedProductId);
@@ -185,7 +194,7 @@ const Billing = () => {
       removeItem(productId);
       return;
     }
-    
+
     setBillItems(billItems.map(item =>
       item.productId === productId
         ? { ...item, quantity: newQuantity }
@@ -214,7 +223,7 @@ const Billing = () => {
     const quantity = Number(item.quantity || 0);
     return sum + (price * quantity);
   }, 0);
-  
+
   // No discount applied in totals (per latest requirement)
   const discountAmount = 0;
   const total = Math.max(0, subtotal);
@@ -260,7 +269,7 @@ const Billing = () => {
     }
 
     setIsGenerating(true);
-    
+
     try {
       const billData = {
         customer: selectedCustomer,
@@ -302,6 +311,8 @@ const Billing = () => {
 
       // Show success message
       alert('Bill generated successfully!');
+      // Switch to history tab so user sees the new bill
+      setActiveTab('history');
     } catch (error) {
       console.error('Error generating bill:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Failed to generate bill. Please try again.';
@@ -367,16 +378,15 @@ const Billing = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Tab Navigation */}
         <div className="flex border-t border-slate-600">
           <button
             onClick={() => setActiveTab('billing')}
-            className={`flex-1 py-4 px-6 text-center font-medium transition-colors ${
-              activeTab === 'billing'
-                ? 'bg-white text-amber-700 '
-                : 'text-slate-300 hover:text-white hover:bg-slate-600'
-            }`}
+            className={`flex-1 py-4 px-6 text-center font-medium transition-colors ${activeTab === 'billing'
+              ? 'bg-white text-amber-700 '
+              : 'text-slate-300 hover:text-white hover:bg-slate-600'
+              }`}
           >
             <div className="flex items-center justify-center gap-2">
               <Calculator size={20} />
@@ -385,11 +395,10 @@ const Billing = () => {
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex-1 py-4 px-6 text-center font-medium transition-colors ${
-              activeTab === 'history'
-                ? 'bg-white text-amber-700 '
-                : 'text-slate-300 hover:text-white  hover:bg-slate-600'
-            }`}
+            className={`flex-1 py-4 px-6 text-center font-medium transition-colors ${activeTab === 'history'
+              ? 'bg-white text-amber-700 '
+              : 'text-slate-300 hover:text-white  hover:bg-slate-600'
+              }`}
           >
             <div className="flex items-center justify-center gap-2">
               <History size={20} />
@@ -405,498 +414,500 @@ const Billing = () => {
           {/* Left Column - Product Selection & Customer */}
           <div className="lg:col-span-2 space-y-6">
             {/* Customer Selection */}
-          <Card className="shadow-xl border-0 bg-white rounded-2xl overflow-visible">
-            <CardHeader className="bg-gradient-to-r from-stone-50 via-stone-100 to-amber-50 border-b border-stone-200">
-              <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-3">
-                <div className="p-2 bg-amber-600 rounded-lg">
-                  <User className="text-white" size={20} />
-                </div>
-                <div>
-                  <div>Customer Selection</div>
-                  <div className="text-sm font-normal text-amber-700">Choose or search for a customer</div>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardBody className="p-6">
-              <div className="relative" ref={customerSearchRef}>
-                <div className="flex items-center gap-3">
-                  {selectedCustomer ? (
-                    <div className="flex-1 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
-                      <div>
-                        <div className="font-semibold text-amber-800">{selectedCustomer.name}</div>
-                        <div className="text-sm text-amber-700">
-                          {selectedCustomer.type} • {selectedCustomer.phone || 'No phone'}
-                        </div>
-                      </div>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setSelectedCustomer(null)}
-                      >
-                        <X size={16} />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex gap-3">
-                        <div className="flex-1">
-                          <SearchBar
-                            value={customerSearch}
-                            onChange={(value) => {
-                              setCustomerSearch(value);
-                              setShowCustomerSearch(true);
-                            }}
-                            placeholder="Search customers by name, email, or phone..."
-                            onFocus={() => setShowCustomerSearch(true)}
-                          />
+            <Card className="shadow-xl border-0 bg-white rounded-2xl overflow-visible">
+              <CardHeader className="bg-gradient-to-r from-stone-50 via-stone-100 to-amber-50 border-b border-stone-200">
+                <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-3">
+                  <div className="p-2 bg-amber-600 rounded-lg">
+                    <User className="text-white" size={20} />
+                  </div>
+                  <div>
+                    <div>Customer Selection</div>
+                    <div className="text-sm font-normal text-amber-700">Choose or search for a customer</div>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardBody className="p-6">
+                <div className="relative" ref={customerSearchRef}>
+                  <div className="flex items-center gap-3">
+                    {selectedCustomer ? (
+                      <div className="flex-1 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <div>
+                          <div className="font-semibold text-amber-800">{selectedCustomer.name}</div>
+                          <div className="text-sm text-amber-700">
+                            {selectedCustomer.type} • {selectedCustomer.phone || 'No phone'}
+                          </div>
                         </div>
                         <Button
-                          variant="primary"
-                          onClick={() => {
-                            setShowCustomerSearch(true);
-                            setCustomerSearch('');
-                          }}
-                          className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSelectedCustomer(null)}
                         >
-                          <User size={16} />
-                          Browse
+                          <X size={16} />
                         </Button>
                       </div>
-                      <div className="text-xs text-gray-500 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-                        Click "Browse" to see all customers or start typing to search
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Customer Search Results */}
-                {showCustomerSearch && (customerSearch || customers.length > 0) && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-stone-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto backdrop-blur-sm">
-                    {filteredCustomers.length > 0 ? (
-                      filteredCustomers.slice(0, 5).map((customer) => (
-                        <button
-                          key={customer._id}
-                          onClick={async () => {
-                            setSelectedCustomer(customer);
-                            setCustomerSearch('');
-                            setShowCustomerSearch(false);
-
-                            try {
-                              const historyResponse = await getCustomerHistory(customer._id, { page: 1, limit: 1 });
-                              const stats = historyResponse.data?.stats;
-                              setCustomerPreviousRemaining(Number(stats?.totalRemaining || 0));
-                            } catch (err) {
-                              console.error('Error fetching customer remaining balance:', err);
-                              setCustomerPreviousRemaining(0);
-                            }
-                          }}
-                          className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                        >
-                          <div className="font-medium text-gray-900">{customer.name}</div>
-                          <div className="text-sm text-gray-600">
-                            {customer.type} • {customer.phone || 'No phone'}
-                          </div>
-                        </button>
-                      ))
                     ) : (
-                      <div className="px-4 py-3 text-gray-500 text-center">
-                        {customers.length === 0 ? 'No customers available' : 'No customers found'}
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Debug info */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="mt-2 text-xs text-gray-500">
-                    Debug: {customers.length} customers loaded, {filteredCustomers.length} filtered
-                  </div>
-                )}
-              </div>
-            </CardBody>
-          </Card>
-          {/* Product Selection via searchable input */}
-          <Card className="shadow-xl border-0 bg-white rounded-2xl overflow-visible">
-            <CardHeader className="bg-gradient-to-r from-slate-50 via-slate-100 to-stone-50 border-b border-slate-200">
-              <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-3">
-                <div className="p-2 bg-slate-600 rounded-lg">
-                  <Package className="text-white" size={20} />
-                </div>
-                <div>
-                  <div>Add Products to Bill</div>
-                  <div className="text-sm font-normal text-slate-600">Search product and set quantity & price</div>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardBody className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="relative" ref={productSearchRef}>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
-                  <SearchBar
-                    value={productSearch}
-                    onChange={(value) => {
-                      setProductSearch(value);
-                      setShowProductSearch(true);
-                    }}
-                    placeholder="Search by name, model, or category..."
-                    onFocus={() => setShowProductSearch(true)}
-                  />
-                  {showProductSearch && filteredProducts.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
-                      {filteredProducts.map((product) => (
-                        <button
-                          key={product._id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedProductId(product._id);
-                            setProductSearch(`${product.name} (${product.model})`);
-                            setShowProductSearch(false);
-                            setLineUnitPrice(product.retailPrice || '');
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-sm"
-                        >
-                          <div className="font-medium text-gray-900">{product.name}</div>
-                          <div className="text-xs text-gray-600">Model: {product.model} • {product.category}</div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={lineQuantity}
-                    onChange={(e) => setLineQuantity(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price (Rs.)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={lineUnitPrice}
-                    onChange={(e) => setLineUnitPrice(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-between items-center mt-2">
-                <div className="text-xs text-gray-500">
-                  Stock info: {selectedProductId ? `Stock: ${products.find(p => p._id === selectedProductId)?.stock ?? 0}` : 'Select a product to see stock'}
-                </div>
-                <Button
-                  type="button"
-                  onClick={addProductToBill}
-                  className="flex items-center gap-2"
-                >
-                  <Plus size={16} />
-                  Add Item
-                </Button>
-              </div>
-            </CardBody>
-          </Card>
-
-          {/* Seller Selection */}
-          <Card className="shadow-xl border-0 bg-white rounded-2xl overflow-visible">
-            <CardHeader className="bg-gradient-to-r from-sky-50 via-sky-100 to-blue-50 border-b border-sky-200">
-              <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-3">
-                <div className="p-2 bg-sky-600 rounded-lg">
-                  <User className="text-white" size={20} />
-                </div>
-                <div>
-                  <div>Seller Selection</div>
-                  <div className="text-sm font-normal text-sky-700">Select the seller for this bill</div>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardBody className="p-6">
-              <div className="relative" ref={sellerSearchRef}>
-                <div className="flex items-center gap-3">
-                  {selectedSeller ? (
-                    <div className="flex-1 flex items-center justify-between bg-sky-50 border border-sky-200 rounded-lg p-3">
-                      <div>
-                        <div className="font-semibold text-sky-800">{selectedSeller.name}</div>
-                        <div className="text-sm text-sky-700">{selectedSeller.phone || 'No phone'}</div>
-                      </div>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setSelectedSeller(null)}
-                      >
-                        <X size={16} />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 flex-1">
-                      <SearchBar
-                        value={sellerSearch}
-                        onChange={(value) => {
-                          setSellerSearch(value);
-                          setShowSellerSearch(true);
-                        }}
-                        placeholder="Search sellers by name or phone..."
-                        onFocus={() => setShowSellerSearch(true)}
-                      />
-                      <div className="text-xs text-gray-500 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-sky-500 rounded-full animate-pulse"></div>
-                        Click and start typing to search sellers
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {showSellerSearch && sellers.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-sky-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto backdrop-blur-sm">
-                    {filteredSellers.length > 0 ? (
-                      filteredSellers.slice(0, 5).map((seller) => (
-                        <button
-                          key={seller._id}
-                          onClick={() => {
-                            setSelectedSeller(seller);
-                            setSellerSearch('');
-                            setShowSellerSearch(false);
-                          }}
-                          className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                        >
-                          <div className="font-medium text-gray-900">{seller.name}</div>
-                          <div className="text-sm text-gray-600">{seller.phone || 'No phone'}</div>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-3 text-gray-500 text-center">
-                        {sellers.length === 0 ? 'No sellers available' : 'No sellers found'}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardBody>
-          </Card>
-        </div>
-
-        {/* Right Column - Bill Summary */}
-        <div className="space-y-6">
-          {/* Bill Items */}
-          <Card className="shadow-xl border-0 bg-white rounded-2xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-orange-50 via-orange-100 to-amber-50 border-b border-orange-200">
-              <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-3">
-                <div className="p-2 bg-orange-600 rounded-lg">
-                  <ShoppingCart className="text-white" size={20} />
-                </div>
-                <div>
-                  <div>Bill Items ({billItems.length})</div>
-                  <div className="text-sm font-normal text-orange-700">
-                    {billItems.length === 0 ? 'No items added yet' : `${billItems.reduce((sum, item) => sum + item.quantity, 0)} total quantity`}
-                  </div>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardBody className="p-0">
-              <div className="max-h-96 overflow-y-auto">
-                {billItems.length > 0 ? (
-                  <div className="divide-y divide-gray-100">
-                    {billItems.map((item) => (
-                      <div key={item.productId} className="p-4">
-                        <div className="flex items-start justify-between mb-3">
+                      <div className="space-y-3">
+                        <div className="flex gap-3">
                           <div className="flex-1">
-                            <div className="font-semibold text-gray-900 text-sm">{item.name}</div>
-                            <div className="text-xs text-gray-500">Model: {item.model}</div>
+                            <SearchBar
+                              value={customerSearch}
+                              onChange={(value) => {
+                                setCustomerSearch(value);
+                                setShowCustomerSearch(true);
+                              }}
+                              placeholder="Search customers by name, email, or phone..."
+                              onFocus={() => setShowCustomerSearch(true)}
+                            />
                           </div>
                           <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={() => removeItem(item.productId)}
-                            className="ml-2"
+                            variant="primary"
+                            onClick={() => {
+                              setShowCustomerSearch(true);
+                              setCustomerSearch('');
+                            }}
+                            className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white px-6 py-2 rounded-lg shadow-lg transition-all duration-200 flex items-center gap-2"
                           >
-                            <Trash2 size={14} />
+                            <User size={16} />
+                            Browse
                           </Button>
                         </div>
-
-                        {/* Unit Price Editing */}
-                        <div className="mb-3">
-                          <label className="block text-xs font-medium text-gray-600 mb-1">Unit Price (Rs.)</label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={item.selectedPrice}
-                            onChange={(e) => updateItemPrice(item.productId, e.target.value)}
-                            className="w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                          {Number(item.originalPrice || 0) > 0 && Number(item.selectedPrice || 0) < Number(item.originalPrice || 0) && (
-                            <div className="mt-1 flex items-center gap-1 text-[11px] text-red-600">
-                              <AlertTriangle size={12} className="shrink-0" />
-                              <span>
-                                Entered price (Rs. {Number(item.selectedPrice || 0).toLocaleString('en-PK')}) is lower than original price
-                                (Rs. {Number(item.originalPrice || 0).toLocaleString('en-PK')}).
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Quantity Controls */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                              disabled={item.quantity <= 1}
-                            >
-                              <Minus size={14} />
-                            </Button>
-                            <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                              disabled={item.quantity >= item.stock}
-                            >
-                              <Plus size={14} />
-                            </Button>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-bold text-gray-900">
-                              Rs. {(Number(item.selectedPrice || 0) * Number(item.quantity || 0)).toLocaleString('en-PK')}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              Rs. {Number(item.selectedPrice || 0).toLocaleString('en-PK')} each
-                            </div>
-                          </div>
+                        <div className="text-xs text-gray-500 flex items-center gap-2">
+                          <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                          Click "Browse" to see all customers or start typing to search
                         </div>
                       </div>
-                    ))}
+                    )}
                   </div>
-                ) : (
-                  <div className="p-8 text-center text-gray-500">
-                    <ShoppingCart size={48} className="mx-auto text-gray-300 mb-4" />
-                    <p>No items in bill</p>
-                    <p className="text-sm">Search and add products above</p>
-                  </div>
-                )}
-              </div>
-            </CardBody>
-          </Card>
 
-          {/* Bill Summary */}
-          <Card className="shadow-xl border-0 bg-white rounded-2xl overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 border-b border-emerald-200">
-              <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-3">
-                <div className="p-2 bg-emerald-700 rounded-lg">
-                  <Calculator className="text-white" size={20} />
+                  {/* Customer Search Results */}
+                  {showCustomerSearch && (customerSearch || customers.length > 0) && (
+                    <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-stone-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto backdrop-blur-sm">
+                      {filteredCustomers.length > 0 ? (
+                        filteredCustomers.slice(0, 5).map((customer) => (
+                          <button
+                            key={customer._id}
+                            onClick={async () => {
+                              setSelectedCustomer(customer);
+                              setCustomerSearch('');
+                              setShowCustomerSearch(false);
+
+                              try {
+                                const historyResponse = await getCustomerHistory(customer._id, { page: 1, limit: 1 });
+                                const stats = historyResponse.data?.stats;
+                                setCustomerPreviousRemaining(Number(stats?.totalRemaining || 0));
+                              } catch (err) {
+                                console.error('Error fetching customer remaining balance:', err);
+                                setCustomerPreviousRemaining(0);
+                              }
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-gray-900">{customer.name}</div>
+                            <div className="text-sm text-gray-600">
+                              {customer.type} • {customer.phone || 'No phone'}
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-gray-500 text-center">
+                          {customers.length === 0 ? 'No customers available' : 'No customers found'}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Debug info */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      Debug: {customers.length} customers loaded, {filteredCustomers.length} filtered
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <div>Bill Summary</div>
-                  <div className="text-sm font-normal text-emerald-700">
-                    {billItems.length === 0 ? 'Add items to calculate total' : `Total: Rs. ${total.toLocaleString('en-PK')}`}
+              </CardBody>
+            </Card>
+            {/* Product Selection via searchable input */}
+            <Card className="shadow-xl border-0 bg-white rounded-2xl overflow-visible">
+              <CardHeader className="bg-gradient-to-r from-slate-50 via-slate-100 to-stone-50 border-b border-slate-200">
+                <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-3">
+                  <div className="p-2 bg-slate-600 rounded-lg">
+                    <Package className="text-white" size={20} />
+                  </div>
+                  <div>
+                    <div>Add Products to Bill</div>
+                    <div className="text-sm font-normal text-slate-600">Search product and set quantity & price</div>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardBody className="p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="relative" ref={productSearchRef}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
+                    <SearchBar
+                      value={productSearch}
+                      onChange={(value) => {
+                        setProductSearch(value);
+                        setShowProductSearch(true);
+                      }}
+                      placeholder="Search by name, model, or category..."
+                      onFocus={() => setShowProductSearch(true)}
+                    />
+                    {showProductSearch && filteredProducts.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+                        {filteredProducts.map((product) => (
+                          <button
+                            key={product._id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedProductId(product._id);
+                              setProductSearch(`${product.name} (${product.model})`);
+                              setShowProductSearch(false);
+                              setLineUnitPrice(product.retailPrice || '');
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-sm"
+                          >
+                            <div className="font-medium text-gray-900">{product.name}</div>
+                            <div className="text-xs text-gray-600">Model: {product.model} • {product.category}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={lineQuantity}
+                      onChange={(e) => setLineQuantity(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit Price (Rs.)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={lineUnitPrice}
+                      onChange={(e) => setLineUnitPrice(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
                   </div>
                 </div>
-              </CardTitle>
-            </CardHeader>
-            <CardBody className="p-6 space-y-4">
-              {/* Totals */}
-              <div className="space-y-2 pt-4 border-t border-gray-200">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span className="font-medium">Rs. {subtotal.toLocaleString('en-PK')}</span>
+                <div className="flex justify-between items-center mt-2">
+                  <div className="text-xs   text-gray-500">
+                    Stock info: {selectedProductId ? `Stock: ${products.find(p => p._id === selectedProductId)?.stock ?? 0}` : 'Select a product to see stock'}
+                  </div>
+                  <div className="text-xs   text-gray-700">
+                    Original Price: {selectedProductId ? `Rs. ${products.find(p => p._id === selectedProductId)?.originalPrice ?? 0}` : 'Select a product to see price'}
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={addProductToBill}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Add Item
+                  </Button>
                 </div>
-                {discountAmount > 0 && (
+              </CardBody>
+            </Card>
+
+            {/* Seller Selection */}
+            <Card className="shadow-xl border-0 bg-white rounded-2xl overflow-visible">
+              <CardHeader className="bg-gradient-to-r from-sky-50 via-sky-100 to-blue-50 border-b border-sky-200">
+                <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-3">
+                  <div className="p-2 bg-sky-600 rounded-lg">
+                    <User className="text-white" size={20} />
+                  </div>
+                  <div>
+                    <div>Seller Selection</div>
+                    <div className="text-sm font-normal text-sky-700">Select the seller for this bill</div>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardBody className="p-6">
+                <div className="relative" ref={sellerSearchRef}>
+                  <div className="flex items-center gap-3">
+                    {selectedSeller ? (
+                      <div className="flex-1 flex items-center justify-between bg-sky-50 border border-sky-200 rounded-lg p-3">
+                        <div>
+                          <div className="font-semibold text-sky-800">{selectedSeller.name}</div>
+                          <div className="text-sm text-sky-700">{selectedSeller.phone || 'No phone'}</div>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setSelectedSeller(null)}
+                        >
+                          <X size={16} />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 flex-1">
+                        <SearchBar
+                          value={sellerSearch}
+                          onChange={(value) => {
+                            setSellerSearch(value);
+                            setShowSellerSearch(true);
+                          }}
+                          placeholder="Search sellers by name or phone..."
+                          onFocus={() => setShowSellerSearch(true)}
+                        />
+                        <div className="text-xs text-gray-500 flex items-center gap-2">
+                          <div className="w-2 h-2 bg-sky-500 rounded-full animate-pulse"></div>
+                          Click and start typing to search sellers
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {showSellerSearch && sellers.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-sky-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto backdrop-blur-sm">
+                      {filteredSellers.length > 0 ? (
+                        filteredSellers.slice(0, 5).map((seller) => (
+                          <button
+                            key={seller._id}
+                            onClick={() => {
+                              setSelectedSeller(seller);
+                              setSellerSearch('');
+                              setShowSellerSearch(false);
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="font-medium text-gray-900">{seller.name}</div>
+                            <div className="text-sm text-gray-600">{seller.phone || 'No phone'}</div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-gray-500 text-center">
+                          {sellers.length === 0 ? 'No sellers available' : 'No sellers found'}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+          </div>
+
+          {/* Right Column - Bill Summary */}
+          <div className="space-y-6">
+            {/* Bill Items */}
+            <Card className="shadow-xl border-0 bg-white rounded-2xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-orange-50 via-orange-100 to-amber-50 border-b border-orange-200">
+                <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-3">
+                  <div className="p-2 bg-orange-600 rounded-lg">
+                    <ShoppingCart className="text-white" size={20} />
+                  </div>
+                  <div>
+                    <div>Bill Items ({billItems.length})</div>
+                    <div className="text-sm font-normal text-orange-700">
+                      {billItems.length === 0 ? 'No items added yet' : `${billItems.reduce((sum, item) => sum + item.quantity, 0)} total quantity`}
+                    </div>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardBody className="p-0">
+                <div className="max-h-96 overflow-y-auto">
+                  {billItems.length > 0 ? (
+                    <div className="divide-y divide-gray-100">
+                      {billItems.map((item) => (
+                        <div key={item.productId} className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="font-semibold text-gray-900 text-sm">{item.name}</div>
+                              <div className="text-xs text-gray-500">Model: {item.model}</div>
+                            </div>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => removeItem(item.productId)}
+                              className="ml-2"
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+
+                          {/* Unit Price Editing */}
+                          <div className="mb-3">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Unit Price (Rs.)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.selectedPrice}
+                              onChange={(e) => updateItemPrice(item.productId, e.target.value)}
+                              className="w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            {Number(item.originalPrice || 0) > 0 && Number(item.selectedPrice || 0) < Number(item.originalPrice || 0) && (
+                              <div className="mt-1 flex items-center gap-1 text-[11px] text-red-600">
+                                <AlertTriangle size={12} className="shrink-0" />
+                                <span>
+                                  Entered price (Rs. {Number(item.selectedPrice || 0).toLocaleString('en-PK')}) is lower than original price
+                                  (Rs. {Number(item.originalPrice || 0).toLocaleString('en-PK')}).
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Quantity Controls */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                                disabled={item.quantity <= 1}
+                              >
+                                <Minus size={14} />
+                              </Button>
+                              <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                                disabled={item.quantity >= item.stock}
+                              >
+                                <Plus size={14} />
+                              </Button>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-bold text-gray-900">
+                                Rs. {(Number(item.selectedPrice || 0) * Number(item.quantity || 0)).toLocaleString('en-PK')}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Rs. {Number(item.selectedPrice || 0).toLocaleString('en-PK')} each
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-gray-500">
+                      <ShoppingCart size={48} className="mx-auto text-gray-300 mb-4" />
+                      <p>No items in bill</p>
+                      <p className="text-sm">Search and add products above</p>
+                    </div>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+
+            {/* Bill Summary */}
+            <Card className="shadow-xl border-0 bg-white rounded-2xl overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 border-b border-emerald-200">
+                <CardTitle className="text-xl font-bold text-gray-800 flex items-center gap-3">
+                  <div className="p-2 bg-emerald-700 rounded-lg">
+                    <Calculator className="text-white" size={20} />
+                  </div>
+                  <div>
+                    <div>Bill Summary</div>
+                    <div className="text-sm font-normal text-emerald-700">
+                      {billItems.length === 0 ? 'Add items to calculate total' : `Total: Rs. ${total.toLocaleString('en-PK')}`}
+                    </div>
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardBody className="p-6 space-y-4">
+                {/* Totals */}
+                <div className="space-y-2 pt-4 border-t border-gray-200">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Discount:</span>
-                    <span className="font-medium text-red-600">- Rs. {discountAmount.toLocaleString('en-PK')}</span>
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="font-medium">Rs. {subtotal.toLocaleString('en-PK')}</span>
                   </div>
-                )}
-                <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
-                  <span>Total:</span>
-                  <span className="text-green-600">Rs. {total.toLocaleString('en-PK')}</span>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Discount:</span>
+                      <span className="font-medium text-red-600">- Rs. {discountAmount.toLocaleString('en-PK')}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-lg font-bold border-t border-gray-200 pt-2">
+                    <span>Total:</span>
+                    <span className="text-green-600">Rs. {total.toLocaleString('en-PK')}</span>
+                  </div>
                 </div>
-              </div>
 
-              {/* Amount Paid & Remaining */}
-              <div className="space-y-3 pt-4 border-t border-gray-200">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-sm font-medium text-gray-700">Amount Paid</label>
-                    <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                        checked={isFullyPaid}
-                        onChange={(e) => setIsFullyPaid(e.target.checked)}
-                      />
-                      <span>Full paid</span>
-                    </label>
+                {/* Amount Paid & Remaining */}
+                <div className="space-y-3 pt-4 border-t border-gray-200">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Amount Paid</label>
+                      <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                          checked={isFullyPaid}
+                          onChange={(e) => setIsFullyPaid(e.target.checked)}
+                        />
+                        <span>Full paid</span>
+                      </label>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max={total}
+                      value={amountPaid}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setAmountPaid(val);
+                        if (val !== total) {
+                          setIsFullyPaid(false);
+                        }
+                      }}
+                      disabled={isFullyPaid}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isFullyPaid ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'
+                        }`}
+                      placeholder="Enter amount paid by customer"
+                    />
                   </div>
-                  <input
-                    type="number"
-                    min="0"
-                    max={total}
-                    value={amountPaid}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value) || 0;
-                      setAmountPaid(val);
-                      if (val !== total) {
-                        setIsFullyPaid(false);
-                      }
-                    }}
-                    disabled={isFullyPaid}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      isFullyPaid ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'border-gray-300'
-                    }`}
-                    placeholder="Enter amount paid by customer"
-                  />
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">Remaining Balance:</span>
-                  <span className={`text-base font-bold ${remainingAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                    Rs. {remainingAmount.toLocaleString('en-PK')}
-                  </span>
-                </div>
-                {selectedCustomer && (
-                  <div className="flex justify-between items-center text-xs text-gray-500">
-                    <span>Previous remaining for this customer:</span>
-                    <span className="font-medium text-gray-700">
-                      Rs. {customerPreviousRemaining.toLocaleString('en-PK')}
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-gray-600">Remaining Balance:</span>
+                    <span className={`text-base font-bold ${remainingAmount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                      Rs. {remainingAmount.toLocaleString('en-PK')}
                     </span>
                   </div>
-                )}
-              </div>
-
-              {/* Actions */}
-              <div className="space-y-3 pt-4">
-                <Button
-                  onClick={generateBill}
-                  disabled={billItems.length === 0 || isGenerating}
-                  className="w-full"
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Receipt size={20} />
-                      Generate Bill
-                    </>
+                  {selectedCustomer && (
+                    <div className="flex justify-between items-center text-xs text-gray-500">
+                      <span>Previous remaining for this customer:</span>
+                      <span className="font-medium text-gray-700">
+                        Rs. {customerPreviousRemaining.toLocaleString('en-PK')}
+                      </span>
+                    </div>
                   )}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={clearBill}
-                  disabled={billItems.length === 0}
-                  className="w-full"
-                >
-                  Clear Bill
-                </Button>
-              </div>
-            </CardBody>
-          </Card>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-3 pt-4">
+                  <Button
+                    onClick={generateBill}
+                    disabled={billItems.length === 0 || isGenerating}
+                    className="w-full"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Receipt size={20} />
+                        Generate Bill
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={clearBill}
+                    disabled={billItems.length === 0}
+                    className="w-full"
+                  >
+                    Clear Bill
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+          </div>
         </div>
-      </div>
       ) : (
         <BillingHistory />
       )}

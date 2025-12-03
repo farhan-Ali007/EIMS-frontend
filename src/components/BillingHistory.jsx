@@ -1,6 +1,7 @@
 import React, { useState , useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getBills, getBillingStats } from '../services/api';
+import { getBills, getBillingStats, deleteBill } from '../services/api';
 import BillReceipt from './BillReceipt';
 import { 
   Receipt, 
@@ -32,6 +33,7 @@ const BillingHistory = () => {
   const [page, setPage] = useState(1);
 
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const {
     data: billsResponse,
@@ -74,6 +76,27 @@ useEffect(() => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleCancelBill = async (bill) => {
+    if (!window.confirm('Are you sure you want to cancel this bill? This will restore stock used by this bill.')) {
+      return;
+    }
+
+    try {
+      await deleteBill(bill._id);
+      // Optimistically mark bill as cancelled in local state
+      setBills((prev) => prev.map((b) => (b._id === bill._id ? { ...b, status: 'cancelled' } : b)));
+      // Also update currently selected bill if open
+      setSelectedBill((prev) => (prev && prev._id === bill._id ? { ...prev, status: 'cancelled' } : prev));
+      // Refresh stats so aggregates reflect cancellation
+      queryClient.invalidateQueries({ queryKey: ['billingStats'] });
+      // Refresh bills list from server on next refetch
+      queryClient.invalidateQueries({ queryKey: ['bills'] });
+    } catch (error) {
+      console.error('Error cancelling bill:', error);
+      alert('Failed to cancel bill. Please try again.');
+    }
   };
 
   const handlePaymentUpdated = (updatedBill) => {
@@ -283,13 +306,31 @@ useEffect(() => {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => handleViewBill(bill)}
-                        className="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1 mx-auto"
-                      >
-                        <Eye size={16} />
-                        View
-                      </button>
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleViewBill(bill)}
+                          className="bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1"
+                        >
+                          <Eye size={16} />
+                          View
+                        </button>
+                        {bill.status !== 'cancelled' && (
+                          <button
+                            onClick={() => navigate(`/billing/edit/${bill._id}`)}
+                            className="bg-amber-500 text-white px-3 py-1 rounded-lg hover:bg-amber-600 transition-colors text-sm"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {bill.status !== 'cancelled' && (
+                          <button
+                            onClick={() => handleCancelBill(bill)}
+                            className="bg-red-600 text-white px-3 py-1 rounded-lg hover:bg-red-700 transition-colors text-sm"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

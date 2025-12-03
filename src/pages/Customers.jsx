@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '../services/api';
+import { getCustomers, createCustomer, updateCustomer, deleteCustomer, getProducts } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -22,8 +22,11 @@ const Customers = () => {
     name: '',
     type: 'online',
     phone: '',
-    address: ''
+    address: '',
+    product: '' // optional associated product
   });
+  const [productSearch, setProductSearch] = useState('');
+  const [showProductSearch, setShowProductSearch] = useState(false);
   const toast = useToast();
   const queryClient = useQueryClient();
   const { role } = useAuth();
@@ -35,6 +38,25 @@ const Customers = () => {
       return response.data;
     }
   });
+
+  // Load products for optional customer-product association
+  const { data: products = [] } = useQuery({
+    queryKey: ['products-for-customers'],
+    queryFn: async () => {
+      const response = await getProducts();
+      return response.data;
+    }
+  });
+
+  const filteredProducts = useMemo(() => {
+    const query = productSearch.toLowerCase();
+    if (!query) return products.slice(0, 8);
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(query) ||
+      p.model?.toLowerCase().includes(query) ||
+      p.category?.toLowerCase().includes(query)
+    ).slice(0, 8);
+  }, [products, productSearch]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -61,8 +83,10 @@ const Customers = () => {
       name: customer.name,
       type: customer.type,
       phone: customer.phone || '',
-      address: customer.address || ''
+      address: customer.address || '',
+      product: customer.product || ''
     });
+    setProductSearch(customer.product || '');
     setIsModalOpen(true);
   };
 
@@ -82,7 +106,9 @@ const Customers = () => {
   const resetForm = () => {
     // Default to current tab type, or 'online' if 'all' is selected
     const defaultType = activeTab === 'all' ? 'online' : activeTab;
-    setFormData({ name: '', type: defaultType, phone: '', address: '' });
+    setFormData({ name: '', type: defaultType, phone: '', address: '', product: '' });
+    setProductSearch('');
+    setShowProductSearch(false);
     setEditingCustomer(null);
   };
 
@@ -273,6 +299,7 @@ const Customers = () => {
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
@@ -296,6 +323,7 @@ const Customers = () => {
                         {customer.type === 'online' ? '🌐 Online' : '📍 Offline'}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{customer.product || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.phone || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.address || '-'}</td>
                     <td className="px-6 py-4">
@@ -368,7 +396,6 @@ const Customers = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input
               type="tel"
-              required
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -383,6 +410,45 @@ const Customers = () => {
               rows="3"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+          </div>
+
+          {/* Optional associated product */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Product (optional)</label>
+            <div className="relative">
+              <SearchBar
+                value={productSearch}
+                onChange={(value) => {
+                  setProductSearch(value);
+                  setFormData({ ...formData, product: value });
+                  setShowProductSearch(true);
+                }}
+                placeholder="Search products by name, model, or category..."
+                onFocus={() => setShowProductSearch(true)}
+              />
+
+              {showProductSearch && filteredProducts.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
+                  {filteredProducts.map((product) => (
+                    <button
+                      key={product._id}
+                      type="button"
+                      onClick={() => {
+                        const label = `${product.name} (${product.model})`;
+                        setFormData({ ...formData, product: label });
+                        setProductSearch(label);
+                        setShowProductSearch(false);
+                      }}
+                      className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b last:border-b-0 border-gray-100"
+                    >
+                      <div className="font-medium text-gray-900">{product.name}</div>
+                      <div className="text-xs text-gray-600">Model: {product.model} • {product.category}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">Optional: link this customer to a primary product for reference.</p>
           </div>
           
           <div className="flex gap-3 mt-6">
