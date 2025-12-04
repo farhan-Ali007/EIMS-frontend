@@ -135,6 +135,11 @@ const Billing = () => {
     );
   }, [sellers, sellerSearch]);
 
+  const selectedProduct = useMemo(
+    () => products.find((p) => p._id === selectedProductId) || null,
+    [products, selectedProductId]
+  );
+
   // Respect navigation state for initial tab (e.g., from EditBill redirect)
   useEffect(() => {
     if (location.state && location.state.activeTab) {
@@ -593,13 +598,35 @@ const Billing = () => {
                     />
                   </div>
                 </div>
-                <div className="flex justify-between items-center mt-2">
-                  <div className="text-xs   text-gray-500">
-                    Stock info: {selectedProductId ? `Stock: ${products.find(p => p._id === selectedProductId)?.stock ?? 0}` : 'Select a product to see stock'}
-                  </div>
-                  <div className="text-xs   text-gray-700">
-                    Original Price: {selectedProductId ? `Rs. ${products.find(p => p._id === selectedProductId)?.originalPrice ?? 0}` : 'Select a product to see price'}
-                  </div>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  {selectedProduct ? (
+                    <>
+                      <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                        <span className="font-medium">Stock:</span>{' '}
+                        <span className="font-semibold">{selectedProduct.stock ?? 0}</span>
+                      </div>
+                      <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                        <span className="font-medium">Original:</span>{' '}
+                        <span>Rs. {selectedProduct.originalPrice ?? 0}</span>
+                      </div>
+                      <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                        <span className="font-medium">Wholesale:</span>{' '}
+                        <span>Rs. {selectedProduct.wholesalePrice ?? 0}</span>
+                      </div>
+                      <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                        <span className="font-medium">Retail:</span>{' '}
+                        <span>Rs. {selectedProduct.retailPrice ?? 0}</span>
+                      </div>
+                      <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                        <span className="font-medium">Website:</span>{' '}
+                        <span>Rs. {selectedProduct.websitePrice ?? 0}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-xs text-gray-500">
+                      Select a product to see stock and price details
+                    </div>
+                  )}
                   <Button
                     type="button"
                     onClick={addProductToBill}

@@ -30,6 +30,11 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
   const numericPaidNow = Number(paidNow || 0);
   const remainingAfter = Math.max(0, remainingBefore - (Number.isNaN(numericPaidNow) ? 0 : numericPaidNow));
 
+  const itemCount = Array.isArray(bill.items) ? bill.items.length : 0;
+  const totalQuantity = Array.isArray(bill.items)
+    ? bill.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+    : 0;
+
   const handlePrintInvoice = () => {
     try {
       const sourceNode = document.querySelector('.print-root');
@@ -204,16 +209,18 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
 
           {/* Items Table - compact invoice style */}
           <div className="px-8 pt-2 pb-4 bg-white items-section">
-            <div className="bg-white  shadow-sm border border-gray-300 overflow-hidden mb-6">
-              <div className="bg-white text-black font-bold px-5 py-3">
-                <div className="flex items-center justify-center text-center">
-                  {/* <div className="p-3 bg-black bg-opacity-20 rounded-xl">
-                    <Package size={24} />
-                  </div> */}
-                  <div>
-                    <h3 className="text-[1rem] font-semibold tracking-wide ">Invoice Items</h3>
-                    {/* <p className="text-gray-200 text-xs">Products and services</p> */}
-                  </div>
+            <div className="bg-white shadow-sm border border-gray-300 overflow-hidden mb-6">
+              <div className="bg-white text-black px-5 py-3 flex items-center justify-between">
+                <div className="font-bold">
+                  <h3 className="text-[1rem] font-semibold tracking-wide">Invoice Items</h3>
+                </div>
+                <div className="text-[11px] text-gray-700 flex items-center gap-3">
+                  <span>
+                    Items: <span className="font-semibold">{itemCount}</span>
+                  </span>
+                  <span>
+                    Total Qty: <span className="font-semibold">{totalQuantity}</span>
+                  </span>
                 </div>
               </div>
               <div className="overflow-x-auto">
