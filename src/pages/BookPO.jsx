@@ -161,7 +161,7 @@ const BookPO = () => {
                   value={form.weight}
                   onChange={(e) => setForm({ ...form, weight: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  placeholder="مثال: 1 کلو"
+                  placeholder="مثال: 500 گرام / 1 کلو"
                 />
               </div>
               <div>
@@ -290,7 +290,7 @@ const BookPO = () => {
                     فون نمبر: <span dir="ltr">{order.toPhone}</span>
                   </div>
                   <div>پتہ: {order.toAddress}</div>
-                  <div>وزن: {order.weight} کلو</div>
+                  <div>وزن: {order.weight}</div>
                   <div>
                     رقم: Rs. {Number(order.amount || 0).toLocaleString('en-PK')}
                   </div>
