@@ -42,6 +42,7 @@ const Products = () => {
     stock: ''
   });
   const [categories, setCategories] = useState([]); // local copy for CategoryManager integration
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const toast = useToast();
   const queryClient = useQueryClient();
   const { role } = useAuth();
@@ -164,9 +165,11 @@ const Products = () => {
     return ['all', ...cats];
   }, [products]);
 
-  // Filter and search products
+  // Filter and search products (optionally restricted to low stock)
   const filteredProducts = useMemo(() => {
-    return products.filter(product => {
+    const source = showLowStockOnly ? lowStockProducts : products;
+
+    return source.filter(product => {
       const matchesSearch = 
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -174,7 +177,7 @@ const Products = () => {
       const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
       return matchesSearch && matchesCategory;
     });
-  }, [products, searchQuery, categoryFilter]);
+  }, [products, lowStockProducts, searchQuery, categoryFilter, showLowStockOnly]);
 
   // Paginate products
   const paginatedProducts = useMemo(() => {
@@ -193,7 +196,7 @@ const Products = () => {
   // Reset to page 1 when search/filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, categoryFilter]);
+  }, [searchQuery, categoryFilter, showLowStockOnly]);
 
   // Stock management functions
   const fetchStockHistory = async (productId) => {
@@ -275,7 +278,25 @@ const Products = () => {
               <CardTitle className="text-xl font-bold text-gray-800">Product Inventory</CardTitle>
               <p className="text-sm text-gray-600 mt-1">Add, edit, and manage your products</p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowLowStockOnly((prev) => !prev)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors shadow-sm ${
+                  showLowStockOnly
+                    ? 'bg-rose-50 border-rose-300 text-rose-700'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+                title="Toggle low stock filter"
+              >
+                <AlertTriangle size={14} className={showLowStockOnly ? 'text-rose-500' : 'text-amber-500'} />
+                {showLowStockOnly ? 'Showing Low Stock' : 'Low Stock Only'}
+                {lowStockProducts.length > 0 && (
+                  <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                    {lowStockProducts.length}
+                  </span>
+                )}
+              </button>
               <Button variant="secondary" onClick={handleExport} className="shadow-sm">
                 <Download size={20} />
                 Export

@@ -1,7 +1,18 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Jameel Noori Urdu font for Urdu content (make sure the font file exists at the given path) */
+@font-face {
+  font-family: 'JameelNooriNastaleeq';
+  src: url('/fonts/JameelNooriNastaleeq.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.urdu-text {
+  font-family: 'JameelNooriNastaleeq', 'Noto Nastaliq Urdu', 'Segoe UI', system-ui, sans-serif;
+}
 
 /* Toast Animation */
 @keyframes slide-in {

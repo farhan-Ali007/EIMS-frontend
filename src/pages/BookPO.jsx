@@ -97,7 +97,7 @@ const BookPO = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
             <Printer size={26} className="text-emerald-600" />
-            Book PO / بک پی او
+            Book PO
           </h1>
           <p className="text-gray-600 mt-1">Print orders on A4 paper (maximum 2 orders per page).</p>
         </div>
@@ -239,7 +239,7 @@ const BookPO = () => {
                         </div>
                         <div className="text-gray-600 flex items-start gap-1 text-[11px]">
                           <MapPin size={11} className="mt-0.5" />
-                          <span>{order.toAddress}</span>
+                          <span className='urdu-text text-[14px]'>{order.toAddress}</span>
                         </div>
                       </td>
                       <td className="px-4 py-2 text-xs text-gray-800">{order.weight}</td>
@@ -282,9 +282,9 @@ const BookPO = () => {
 
             <div className="relative z-10 text-lg leading-relaxed w-full">
               {/* To section: heading on its own line, details below on right */}
-              <div className="mb-4">
+              <div className="mb-4 urdu-text">
                 <div className="font-bold text-lg text-left">To</div>
-                <div className="mt-1 text-right" dir="rtl">
+                <div className="mt-1 text-right urdu-text" dir="rtl">
                   <div>نام: {order.toName}</div>
                   <div>
                     فون نمبر: <span dir="ltr">{order.toPhone}</span>
@@ -300,7 +300,7 @@ const BookPO = () => {
               <hr className="my-3 border-dashed" />
 
               {/* From section: heading on its own line, details below on right */}
-              <div className="mt-5">
+              <div className="mt-5 urdu-text">
                 <div className="font-bold text-lg text-left">From</div>
                 <div className="mt-1 text-right" dir="rtl">
                   <div>اعتماد مارٹ</div>
