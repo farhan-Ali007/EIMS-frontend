@@ -14,7 +14,8 @@ import {
   Wallet,
   Truck,
   RotateCcw,
-  DollarSign
+  DollarSign,
+  BookOpen
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -47,7 +48,7 @@ const Layout = () => {
     { path: '/income', icon: DollarSign, label: 'Income', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/returns', icon: RotateCcw, label: 'Returns', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/po', icon: Truck, label: 'PO', roles: ['admin', 'superadmin', 'manager'] },
-    { path: '/book-po', icon: Truck, label: 'Book PO', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/book-po', icon: BookOpen, label: 'Book PO', roles: ['admin', 'superadmin', 'manager'] },
   ];
 
   const navItems = allNavItems.filter(item => !item.roles || item.roles.includes(role));
