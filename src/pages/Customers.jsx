@@ -82,11 +82,17 @@ const Customers = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Build payload and ensure optional seller is not sent as an empty string
+      const payload = { ...formData };
+      if (!payload.seller) {
+        delete payload.seller;
+      }
+
       if (editingCustomer) {
-        await updateCustomer(editingCustomer._id, formData);
+        await updateCustomer(editingCustomer._id, payload);
         toast.success('Customer updated successfully');
       } else {
-        await createCustomer(formData);
+        await createCustomer(payload);
         toast.success('Customer created successfully');
       }
       setIsModalOpen(false);
