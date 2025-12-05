@@ -15,10 +15,13 @@ const PO = () => {
   const [showForm, setShowForm] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [selectedProductId, setSelectedProductId] = useState('');
+  const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     trackingNumber: '',
     customerName: '',
     address: '',
+    codAmount: '',
+    parcelDate: today,
     status: 'processing',
     paymentStatus: 'unpaid',
     notes: ''
@@ -104,12 +107,14 @@ const PO = () => {
         customerName: form.customerName.trim(),
         trackingNumber: form.trackingNumber.trim(),
         address: form.address.trim(),
+        codAmount: Number(form.codAmount || 0),
+        parcelDate: form.parcelDate || today,
         status: form.status,
         paymentStatus: form.paymentStatus,
         notes: form.notes.trim()
       });
       toast.success('Parcel recorded successfully');
-      setForm({ trackingNumber: '', customerName: '', address: '', status: 'processing', paymentStatus: 'unpaid', notes: '' });
+      setForm({ trackingNumber: '', customerName: '', address: '', codAmount: '', parcelDate: today, status: 'processing', paymentStatus: 'unpaid', notes: '' });
       setSelectedProductId('');
       setProductSearch('');
       await queryClient.invalidateQueries({ queryKey: ['parcels'] });
@@ -181,6 +186,31 @@ const PO = () => {
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* COD Amount */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">COD Amount</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={form.codAmount}
+                    onChange={(e) => setForm({ ...form, codAmount: e.target.value })}
+                    placeholder="Enter COD amount for this parcel"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
+                </div>
+
+                {/* Parcel Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={form.parcelDate}
+                    onChange={(e) => setForm({ ...form, parcelDate: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                  />
                 </div>
 
                 {/* Customer Name */}
@@ -318,6 +348,8 @@ const PO = () => {
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tracking #</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">COD</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Payment</th>
@@ -336,7 +368,7 @@ const PO = () => {
                         {p.product ? (
                           <div>
                             <div className="font-semibold text-xs">{p.product.name}</div>
-                            <div className="text-[10px] text-gray-500">{p.product.model} • {p.product.category}</div>
+                            <div className="text-[10px] text-gray-500">{p.product.model} 2 {p.product.category}</div>
                           </div>
                         ) : (
                           '-'
@@ -344,6 +376,12 @@ const PO = () => {
                       </td>
                       <td className="px-4 py-2 text-xs text-gray-800">
                         {p.customerName || '-'}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-right text-gray-800">
+                        {typeof p.codAmount === 'number' ? p.codAmount.toLocaleString('en-PK') : '-'}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-gray-700">
+                        {p.parcelDate ? new Date(p.parcelDate).toLocaleDateString('en-GB') : ''}
                       </td>
                       <td className="px-4 py-2 text-xs text-gray-700 max-w-xs break-words">
                         <div className="flex items-start gap-1">
