@@ -180,33 +180,7 @@ const Sales = () => {
           </Button>
         </div>
       </div>
-
-      {/* Search and Date Filter */}
-      <Card>
-        <CardBody>
-          <div className="space-y-4">
-            <SearchBar
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Search by product, customer, or seller..."
-            />
-            <DateRangeFilter
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={setStartDate}
-              onEndDateChange={setEndDate}
-              onQuickFilter={handleQuickFilter}
-            />
-          </div>
-          {(searchQuery || startDate || endDate) && (
-            <div className="mt-3 text-sm text-gray-600">
-              Found {filteredSales.length} sale(s)
-            </div>
-          )}
-        </CardBody>
-      </Card>
-
-      {/* Summary Cards */}
+            {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardBody>
@@ -250,6 +224,32 @@ const Sales = () => {
           </CardBody>
         </Card>
       </div>
+
+      {/* Search and Date Filter */}
+      <Card>
+        <CardBody>
+          <div className="space-y-4">
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search by product, customer, or seller..."
+            />
+            <DateRangeFilter
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
+              onQuickFilter={handleQuickFilter}
+            />
+          </div>
+          {(searchQuery || startDate || endDate) && (
+            <div className="mt-3 text-sm text-gray-600">
+              Found {filteredSales.length} sale(s)
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
 
       {/* Sales Table (read-only history) */}
       <Card>

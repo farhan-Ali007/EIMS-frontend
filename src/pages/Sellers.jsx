@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getSellers, createSeller, updateSeller, deleteSeller, getSellerLeaderboard } from '../services/api';
+import { getSellers, getSeller, createSeller, updateSeller, deleteSeller, getSellerLeaderboard, backfillOnlineCustomerCommissions, previewOnlineCustomerCommissions } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
-import { Plus, Edit, Trash2, Trophy, TrendingUp, Users, Download, Copy, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Trophy, TrendingUp, Users, Download, Copy, CheckCircle, History } from 'lucide-react';
 import { exportToExcel, formatForExport } from '../utils/exportUtils';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +28,19 @@ const Sellers = () => {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { role } = useAuth();
+
+  const [historyModal, setHistoryModal] = useState({
+    isOpen: false,
+    seller: null,
+    sales: [],
+    loading: false
+  });
+
+  const [previewModal, setPreviewModal] = useState({
+    isOpen: false,
+    summary: null,
+    perSeller: []
+  });
 
   const { data: sellers = [] } = useQuery({
     queryKey: ['sellers'],
@@ -94,6 +107,24 @@ const Sellers = () => {
     }
   };
 
+  const handleViewHistory = async (seller) => {
+    setHistoryModal({ isOpen: true, seller, sales: [], loading: true });
+    try {
+      const response = await getSeller(seller._id);
+      const data = response.data || {};
+      setHistoryModal((prev) => ({
+        ...prev,
+        seller: data.seller || seller,
+        sales: data.sales || [],
+        loading: false
+      }));
+    } catch (error) {
+      console.error('Error loading seller history:', error);
+      toast.error(error.response?.data?.message || 'Failed to load seller history');
+      setHistoryModal((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
   const handleEdit = (seller) => {
     setEditingSeller(seller);
     setFormData({
@@ -142,7 +173,7 @@ const Sellers = () => {
 
   // Filter and search sellers
   const filteredSellers = useMemo(() => {
-    return sellers.filter(seller => 
+    return sellers.filter(seller =>
       seller.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       seller.phone?.includes(searchQuery)
     );
@@ -163,6 +194,31 @@ const Sellers = () => {
     toast.success(`📊 Exported ${filteredSellers.length} sellers to Excel!`);
   };
 
+  const handleBackfill = async () => {
+    if (!(role === 'admin' || role === 'superadmin')) return;
+    try {
+      const response = await previewOnlineCustomerCommissions();
+      const data = response.data || {};
+      setPreviewModal({
+        isOpen: true,
+        summary: {
+          processed: data.processed ?? 0,
+          wouldCreate: data.wouldCreate ?? 0,
+          skipped: data.skipped ?? 0,
+          totalCommissionAdded: data.totalCommissionAdded ?? 0,
+        },
+        perSeller: data.perSeller || []
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['sellers'] }),
+        queryClient.invalidateQueries({ queryKey: ['sellerLeaderboard'] })
+      ]);
+    } catch (error) {
+      console.error('Error running backfill:', error);
+      toast.error(error.response?.data?.message || 'Failed to run commission backfill');
+    }
+  };
+
   // Reset to page 1 when search changes
   useEffect(() => {
     setCurrentPage(1);
@@ -179,6 +235,11 @@ const Sellers = () => {
           <p className="text-gray-600 mt-1">Manage sellers and track commissions</p>
         </div>
         <div className="flex gap-3">
+          {(role === 'admin' || role === 'superadmin') && (
+            <Button variant="secondary" onClick={handleBackfill}>
+              Preview Commission Recovery
+            </Button>
+          )}
           <Button variant="secondary" onClick={handleExport}>
             <Download size={20} />
             Export
@@ -225,7 +286,7 @@ const Sellers = () => {
                     <p className="text-sm text-gray-600">#{index + 1} Seller</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-emerald-600">Rs. {seller.totalCommission.toLocaleString('en-PK', {minimumFractionDigits: 2})}</p>
+                    <p className="font-bold text-emerald-600">Rs. {seller.totalCommission.toLocaleString('en-PK', { minimumFractionDigits: 2 })}</p>
                     <p className="text-xs text-gray-500">Commission</p>
                   </div>
                 </div>
@@ -239,8 +300,8 @@ const Sellers = () => {
       <Card>
         <CardHeader>
           <CardTitle>
-            {searchQuery 
-              ? `Filtered Sellers (${filteredSellers.length})` 
+            {searchQuery
+              ? `Filtered Sellers (${filteredSellers.length})`
               : `All Sellers (${sellers.length})`}
           </CardTitle>
         </CardHeader>
@@ -281,6 +342,9 @@ const Sellers = () => {
                       <div className="flex gap-2">
                         <Button variant="secondary" size="sm" onClick={() => handleEdit(seller)}>
                           <Edit size={16} />
+                        </Button>
+                        <Button variant="secondary" size="sm" onClick={() => handleViewHistory(seller)}>
+                          <History size={16} />
                         </Button>
                         {(role === 'admin' || role === 'superadmin') && (
                           <Button variant="danger" size="sm" onClick={() => handleDelete(seller._id)}>
@@ -351,7 +415,7 @@ const Sellers = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
             <input
@@ -361,14 +425,14 @@ const Sellers = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <div className="flex gap-3 mt-6">
             <Button type="submit" className="flex-1">
               {editingSeller ? 'Update Seller' : 'Create Seller'}
             </Button>
-            <Button 
-              type="button" 
-              variant="secondary" 
+            <Button
+              type="button"
+              variant="secondary"
               onClick={() => { setIsModalOpen(false); resetForm(); }}
               className="flex-1"
             >
@@ -399,7 +463,7 @@ const Sellers = () => {
           {/* Credentials Display */}
           <div className="bg-gradient-to-r from-slate-50 to-gray-50 rounded-lg p-6 border border-gray-200">
             <h3 className="font-bold text-gray-800 mb-4 text-lg">Login Credentials</h3>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Temporary Password</label>
@@ -413,14 +477,14 @@ const Sellers = () => {
           {/* Warning */}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
             <p className="text-amber-900 text-sm">
-              ⚠️ <strong>Important:</strong> This password will only be shown once. 
+              ⚠️ <strong>Important:</strong> This password will only be shown once.
               Please copy and share it with the seller securely.
             </p>
           </div>
 
           {/* Actions */}
           <div className="flex gap-3">
-            <Button 
+            <Button
               onClick={handleCopyCredentials}
               className="flex-1 flex items-center justify-center gap-2"
             >
@@ -436,7 +500,7 @@ const Sellers = () => {
                 </>
               )}
             </Button>
-            <Button 
+            <Button
               variant="secondary"
               onClick={closeCredentialsModal}
               className="flex-1"
@@ -444,6 +508,120 @@ const Sellers = () => {
               Done
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Commission Recovery Preview Modal */}
+      <Modal
+        isOpen={previewModal.isOpen}
+        onClose={() => setPreviewModal({ isOpen: false, summary: null, perSeller: [] })}
+        title="Commission Recovery Preview"
+      >
+        <div className="space-y-4">
+          {previewModal.summary ? (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-gray-700 flex flex-wrap gap-3">
+              <span><span className="font-semibold">Processed:</span> {previewModal.summary.processed}</span>
+              <span><span className="font-semibold">Would create:</span> {previewModal.summary.wouldCreate}</span>
+              <span><span className="font-semibold">Skipped:</span> {previewModal.summary.skipped}</span>
+              <span>
+                <span className="font-semibold">Total commission to add:</span>{' '}
+                Rs. {previewModal.summary.totalCommissionAdded.toLocaleString('en-PK')}
+              </span>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">No preview data.</div>
+          )}
+
+          {previewModal.perSeller.length > 0 ? (
+            <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seller</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Customers</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Commission To Add</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {previewModal.perSeller.map((s) => (
+                    <tr key={s.sellerId}>
+                      <td className="px-3 py-2 text-xs text-gray-800">{s.sellerName}</td>
+                      <td className="px-3 py-2 text-xs text-right text-gray-800">{s.customers}</td>
+                      <td className="px-3 py-2 text-xs text-right text-gray-800">
+                        Rs. {Number(s.commissionToAdd || 0).toLocaleString('en-PK')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">No sellers will receive additional commission.</div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Seller History Modal */}
+      <Modal
+        isOpen={historyModal.isOpen}
+        onClose={() => setHistoryModal({ isOpen: false, seller: null, sales: [], loading: false })}
+        title={historyModal.seller ? `Seller History - ${historyModal.seller.name}` : 'Seller History'}
+      >
+        <div className="space-y-4">
+          {historyModal.loading ? (
+            <div className="text-sm text-gray-600">Loading history...</div>
+          ) : historyModal.sales.length === 0 ? (
+            <div className="text-sm text-gray-500">No history found for this seller.</div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <span>
+                  <span className="font-semibold">Commission rate:</span>{' '}
+                  Rs. {(historyModal.seller?.commissionRate ?? 0).toLocaleString('en-PK')}
+                </span>
+                <span>
+                  <span className="font-semibold">Products:</span>{' '}
+                  {historyModal.sales.length}
+                </span>
+                <span>
+                  <span className="font-semibold">{historyModal.seller?.commissionRate} × {historyModal.sales.length}=</span>{' '}
+                  Rs. {(
+                    (historyModal.seller?.commissionRate ?? 0) * historyModal.sales.length
+                  ).toLocaleString('en-PK')}
+                </span>
+              </div>
+              <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {historyModal.sales.map((sale) => (
+                      <tr key={sale._id}>
+                        <td className="px-3 py-2 text-xs text-gray-800">
+                          {sale.productName || sale.productId?.name || '-'}-{sale.productId?.model}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-gray-800">
+                          {sale.customerName || sale.customerId?.name || '-'}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-gray-600">
+                          {sale.customerId?.address || '-'}
+                        </td>
+                        <td className="px-3 py-2 text-xs text-gray-600">
+                          {sale.createdAt ? new Date(sale.createdAt).toLocaleString('en-PK') : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       </Modal>
     </div>
