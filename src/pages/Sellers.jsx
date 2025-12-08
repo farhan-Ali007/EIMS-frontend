@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getSellers, getSeller, createSeller, updateSeller, deleteSeller, getSellerLeaderboard, backfillOnlineCustomerCommissions, previewOnlineCustomerCommissions } from '../services/api';
+import { getSellers, getSeller, createSeller, updateSeller, deleteSeller, getSellerLeaderboard } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -34,12 +34,6 @@ const Sellers = () => {
     seller: null,
     sales: [],
     loading: false
-  });
-
-  const [previewModal, setPreviewModal] = useState({
-    isOpen: false,
-    summary: null,
-    perSeller: []
   });
 
   const { data: sellers = [] } = useQuery({
@@ -194,31 +188,6 @@ const Sellers = () => {
     toast.success(`📊 Exported ${filteredSellers.length} sellers to Excel!`);
   };
 
-  const handleBackfill = async () => {
-    if (!(role === 'admin' || role === 'superadmin')) return;
-    try {
-      const response = await previewOnlineCustomerCommissions();
-      const data = response.data || {};
-      setPreviewModal({
-        isOpen: true,
-        summary: {
-          processed: data.processed ?? 0,
-          wouldCreate: data.wouldCreate ?? 0,
-          skipped: data.skipped ?? 0,
-          totalCommissionAdded: data.totalCommissionAdded ?? 0,
-        },
-        perSeller: data.perSeller || []
-      });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['sellers'] }),
-        queryClient.invalidateQueries({ queryKey: ['sellerLeaderboard'] })
-      ]);
-    } catch (error) {
-      console.error('Error running backfill:', error);
-      toast.error(error.response?.data?.message || 'Failed to run commission backfill');
-    }
-  };
-
   // Reset to page 1 when search changes
   useEffect(() => {
     setCurrentPage(1);
@@ -235,11 +204,6 @@ const Sellers = () => {
           <p className="text-gray-600 mt-1">Manage sellers and track commissions</p>
         </div>
         <div className="flex gap-3">
-          {(role === 'admin' || role === 'superadmin') && (
-            <Button variant="secondary" onClick={handleBackfill}>
-              Preview Commission Recovery
-            </Button>
-          )}
           <Button variant="secondary" onClick={handleExport}>
             <Download size={20} />
             Export
@@ -508,56 +472,6 @@ const Sellers = () => {
               Done
             </Button>
           </div>
-        </div>
-      </Modal>
-
-      {/* Commission Recovery Preview Modal */}
-      <Modal
-        isOpen={previewModal.isOpen}
-        onClose={() => setPreviewModal({ isOpen: false, summary: null, perSeller: [] })}
-        title="Commission Recovery Preview"
-      >
-        <div className="space-y-4">
-          {previewModal.summary ? (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-gray-700 flex flex-wrap gap-3">
-              <span><span className="font-semibold">Processed:</span> {previewModal.summary.processed}</span>
-              <span><span className="font-semibold">Would create:</span> {previewModal.summary.wouldCreate}</span>
-              <span><span className="font-semibold">Skipped:</span> {previewModal.summary.skipped}</span>
-              <span>
-                <span className="font-semibold">Total commission to add:</span>{' '}
-                Rs. {previewModal.summary.totalCommissionAdded.toLocaleString('en-PK')}
-              </span>
-            </div>
-          ) : (
-            <div className="text-sm text-gray-500">No preview data.</div>
-          )}
-
-          {previewModal.perSeller.length > 0 ? (
-            <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-lg">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Seller</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Customers</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Commission To Add</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {previewModal.perSeller.map((s) => (
-                    <tr key={s.sellerId}>
-                      <td className="px-3 py-2 text-xs text-gray-800">{s.sellerName}</td>
-                      <td className="px-3 py-2 text-xs text-right text-gray-800">{s.customers}</td>
-                      <td className="px-3 py-2 text-xs text-right text-gray-800">
-                        Rs. {Number(s.commissionToAdd || 0).toLocaleString('en-PK')}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-sm text-gray-500">No sellers will receive additional commission.</div>
-          )}
         </div>
       </Modal>
 

@@ -64,8 +64,6 @@ export const getCustomer = (id) => api.get(`/customers/${id}`);
 export const createCustomer = (data) => api.post('/customers', data);
 export const updateCustomer = (id, data) => api.put(`/customers/${id}`, data);
 export const deleteCustomer = (id) => api.delete(`/customers/${id}`);
-export const backfillOnlineCustomerCommissions = () => api.post('/customers/backfill-online-commissions');
-export const previewOnlineCustomerCommissions = () => api.get('/customers/backfill-online-commissions/preview');
 
 // Sales
 export const getSales = () => api.get('/sales');
@@ -128,5 +126,6 @@ export const updateParcelStatus = (id, data) => api.patch(`/parcels/${id}/status
 // Book PO orders (Urdu chits)
 export const getBookPOs = (params) => api.get('/book-po', { params });
 export const createBookPO = (data) => api.post('/book-po', data);
+export const updateBookPO = (id, data) => api.put(`/book-po/${id}`, data);
 
 export default api;
