@@ -188,7 +188,7 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
                   <div className="space-y-1.5">
                     <div className="flex justify-between gap-2">
                       <span className="text-gray-600 whitespace-nowrap">Name:</span>
-                      <span className="font-semibold text-gray-900 flex-1 text-right">{bill.customer.name}</span>
+                      <span className="font-semibold text-gray-900 flex-1 text-right text-sm">{bill.customer.name}</span>
                     </div>
                     {bill.customer.phone && (
                       <div className="flex justify-between gap-2">
@@ -270,9 +270,9 @@ const BillReceipt = ({ bill, onClose, onPrint, onPaymentUpdated }) => {
 
               {/* Totals row + dotted lines for paid / remaining */}
               <div className="mt-2 pt-2 border-t border-gray-200 space-y-1.5 text-[11px]">
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-gray-700">Total:</span>
-                  <span className="font-semibold text-gray-900">Rs.{formatCurrency(bill.total)}</span>
+                <div className="flex justify-between items-center w-full text-sm font-bold">
+                  <span className="text-gray-800">Total:</span>
+                  <span className="text-gray-900">Rs.{formatCurrency(bill.total)}</span>
                 </div>
                 <div className="flex items-center mt-1">
                   <span className="text-gray-700 mr-2">Amount Paid</span>
