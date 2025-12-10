@@ -88,10 +88,14 @@ const Income = () => {
       map[name].totalPaid += paid;
     });
 
-    return Object.values(map).map((entry) => ({
-      ...entry,
-      remaining: entry.totalExpected - entry.totalPaid,
-    }));
+    return Object.values(map).map((entry) => {
+      const rawRemaining = entry.totalExpected - entry.totalPaid;
+      return {
+        ...entry,
+        // Amount still due should never be negative
+        remaining: Math.max(rawRemaining, 0),
+      };
+    });
   }, [incomes]);
 
   const incomeBalancesMap = useMemo(() => {
@@ -113,7 +117,9 @@ const Income = () => {
       const remainingBefore = runningByPerson[name];
       const expected = Number(inc.expectedAmount || 0);
       const paid = Number(inc.amount || 0);
-      const remainingAfter = remainingBefore + expected - paid;
+      const rawRemainingAfter = remainingBefore + expected - paid;
+      // Clamp per-record running balance so it never goes below 0
+      const remainingAfter = Math.max(rawRemainingAfter, 0);
 
       runningByPerson[name] = remainingAfter;
 
@@ -311,9 +317,9 @@ const Income = () => {
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total Expected</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Remaining</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total Should Pay</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total Received</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount Due</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -322,7 +328,7 @@ const Income = () => {
                       <td className="px-4 py-2 text-sm text-gray-800">{p.from}</td>
                       <td className="px-4 py-2 text-sm text-gray-700">Rs. {Number(p.totalExpected || 0).toLocaleString('en-PK')}</td>
                       <td className="px-4 py-2 text-sm text-emerald-700">Rs. {Number(p.totalPaid || 0).toLocaleString('en-PK')}</td>
-                      <td className={`px-4 py-2 text-sm font-semibold ${p.remaining > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                      <td className={`px-4 py-2 text-sm font-semibold ${Number(p.remaining || 0) > 0 ? 'text-red-600' : 'text-emerald-700'}`}>
                         Rs. {Number(p.remaining || 0).toLocaleString('en-PK')}
                       </td>
                     </tr>
@@ -369,10 +375,10 @@ const Income = () => {
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Expected</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Remaining Before</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Remaining After</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Should Pay</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Paid Now</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Due Before</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Due After</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Recorded By</th>
                   </tr>

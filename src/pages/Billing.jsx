@@ -1,13 +1,15 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getProducts, getCustomers, getSellers, createBill, getCustomerHistory } from '../services/api';
-import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
-import Button from '../components/Button';
-import SearchBar from '../components/SearchBar';
+import { AlertTriangle, Calculator, History, Minus, Package, Plus, Receipt, ShoppingCart, Trash2, User, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import BillingHistory from '../components/BillingHistory';
 import BillReceipt from '../components/BillReceipt';
-import { Plus, Minus, Trash2, Receipt, Calculator, User, Package, ShoppingCart, X, Check, History, AlertTriangle } from 'lucide-react';
+import Button from '../components/Button';
+import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
+import Modal from '../components/Modal';
+import SearchBar from '../components/SearchBar';
+import { useToast } from '../context/ToastContext';
+import { createBill, createCustomer, getCustomerHistory, getCustomers, getProducts, getSellers } from '../services/api';
 
 const Billing = () => {
   const [billItems, setBillItems] = useState([]);
@@ -31,6 +33,21 @@ const Billing = () => {
   const [generatedBill, setGeneratedBill] = useState(null);
   const [showReceipt, setShowReceipt] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAddCustomerOpen, setIsAddCustomerOpen] = useState(false);
+  const [newCustomerForm, setNewCustomerForm] = useState({
+    name: '',
+    type: 'offline',
+    phone: '',
+    address: '',
+  });
+  const [customerStats, setCustomerStats] = useState(null);
+  const [customerHistoryBills, setCustomerHistoryBills] = useState([]);
+  const [customerHistoryPagination, setCustomerHistoryPagination] = useState(null);
+  const [customerHistoryPage, setCustomerHistoryPage] = useState(1);
+  const [showCustomerHistoryModal, setShowCustomerHistoryModal] = useState(false);
+  const [selectedHistoryBill, setSelectedHistoryBill] = useState(null);
+  const [offlineSearch, setOfflineSearch] = useState('');
+  const [offlinePage, setOfflinePage] = useState(1);
 
   // Refs for click-outside detection
   const customerSearchRef = useRef(null);
@@ -39,6 +56,7 @@ const Billing = () => {
 
   const queryClient = useQueryClient();
   const location = useLocation();
+  const toast = useToast();
 
   const {
     data: products = [],
@@ -82,6 +100,38 @@ const Billing = () => {
   const loading = productsLoading || customersLoading || sellersLoading;
   const error = productsError || customersError || sellersError;
 
+  const handleCreateCustomerFromBilling = async (e) => {
+    e.preventDefault();
+    if (!newCustomerForm.name.trim()) {
+      toast.error('Please enter a customer name');
+      return;
+    }
+
+    try {
+      const payload = {
+        name: newCustomerForm.name.trim(),
+        type: newCustomerForm.type,
+        phone: newCustomerForm.phone.trim() || undefined,
+        address: newCustomerForm.address.trim() || undefined,
+      };
+
+      const response = await createCustomer(payload);
+      const created = response.data;
+
+      await queryClient.invalidateQueries({ queryKey: ['customers'] });
+
+      setSelectedCustomer(created);
+      setCustomerPreviousRemaining(0);
+      setIsAddCustomerOpen(false);
+      setNewCustomerForm({ name: '', type: 'offline', phone: '', address: '' });
+      toast.success('Customer created successfully');
+    } catch (error) {
+      console.error('Error creating customer from billing page:', error);
+      const message = error.response?.data?.message || 'Failed to create customer';
+      toast.error(message);
+    }
+  };
+
   // Click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -101,6 +151,72 @@ const Billing = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Load per-customer stats and history when a customer is selected or page changes
+  useEffect(() => {
+    const loadCustomerSummary = async () => {
+      if (activeTab !== 'customer-summary') {
+        return;
+      }
+
+      if (!selectedCustomer || (!selectedCustomer.id && !selectedCustomer._id)) {
+        setCustomerStats(null);
+        setCustomerHistoryBills([]);
+        setCustomerHistoryPagination(null);
+        return;
+      }
+
+      try {
+        const customerId = selectedCustomer.id || selectedCustomer._id;
+        const response = await getCustomerHistory(customerId, { page: customerHistoryPage, limit: 10 });
+        const data = response.data || {};
+        setCustomerStats(data.stats || null);
+        setCustomerHistoryBills(data.bills || []);
+        setCustomerHistoryPagination(data.pagination || null);
+      } catch (err) {
+        console.error('Error loading customer summary:', err);
+        toast.error('Failed to load customer summary');
+      }
+    };
+
+    loadCustomerSummary();
+  }, [activeTab, selectedCustomer, customerHistoryPage, toast]);
+
+  // When opening Customer Summary with no selected customer, default to first offline customer
+  useEffect(() => {
+    if (activeTab !== 'customer-summary') return;
+    if (selectedCustomer) return;
+    if (!customers || customers.length === 0) return;
+
+    const offlineCustomer = customers.find((c) => c.type === 'offline');
+    const fallback = offlineCustomer || customers[0];
+    if (fallback) {
+      setSelectedCustomer(fallback);
+    }
+  }, [activeTab, selectedCustomer, customers]);
+
+  // Derived offline customers for summary tab (search + pagination)
+  const offlineCustomers = useMemo(
+    () => customers.filter((c) => c.type === 'offline'),
+    [customers]
+  );
+
+  const filteredOfflineCustomers = useMemo(() => {
+    const term = offlineSearch.trim().toLowerCase();
+    if (!term) return offlineCustomers;
+    return offlineCustomers.filter((c) =>
+      c.name.toLowerCase().includes(term) ||
+      (c.phone || '').toLowerCase().includes(term)
+    );
+  }, [offlineCustomers, offlineSearch]);
+
+  const offlinePerPage = 10;
+  const offlineTotalPages = Math.max(1, Math.ceil(filteredOfflineCustomers.length / offlinePerPage));
+  const currentOfflinePage = Math.min(offlinePage, offlineTotalPages);
+  const paginatedOfflineCustomers = useMemo(() => {
+    const start = (currentOfflinePage - 1) * offlinePerPage;
+    return filteredOfflineCustomers.slice(start, start + offlinePerPage);
+  }, [filteredOfflineCustomers, currentOfflinePage]);
 
   // Filter products for dropdown (optional text filter by name/model/category)
   const filteredProducts = useMemo(() => {
@@ -238,7 +354,7 @@ const Billing = () => {
   const remainingAmount = Math.max(0, total - numericAmountPaid);
 
   // Keep amountPaid in sync when bill is marked as fully paid
-  React.useEffect(() => {
+  useEffect(() => {
     if (isFullyPaid) {
       setAmountPaid(total);
     }
@@ -247,7 +363,6 @@ const Billing = () => {
   // Clear bill
   const clearBill = () => {
     setBillItems([]);
-    setSelectedCustomer(null);
     setSelectedSeller(null);
     setDiscount(0);
     setAmountPaid(0);
@@ -410,6 +525,18 @@ const Billing = () => {
               Billing History
             </div>
           </button>
+          <button
+            onClick={() => setActiveTab('customer-summary')}
+            className={`flex-1 py-4 px-6 text-center font-medium transition-colors ${activeTab === 'customer-summary'
+              ? 'bg-white text-amber-700 '
+              : 'text-slate-300 hover:text-white  hover:bg-slate-600'
+              }`}
+          >
+            <div className="flex items-center justify-center gap-2">
+              <User size={20} />
+              Customer Summary
+            </div>
+          </button>
         </div>
       </div>
 
@@ -474,6 +601,14 @@ const Billing = () => {
                           >
                             <User size={16} />
                             Browse
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setIsAddCustomerOpen(true)}
+                            className="px-4 py-2 text-sm"
+                          >
+                            Add New
                           </Button>
                         </div>
                         <div className="text-xs text-gray-500 flex items-center gap-2">
@@ -935,9 +1070,395 @@ const Billing = () => {
             </Card>
           </div>
         </div>
-      ) : (
+      ) : activeTab === 'history' ? (
         <BillingHistory />
+      ) : (
+        <div className="space-y-6">
+          {/* Customer Summary Tab */}
+          <div className="space-y-6">
+            {/* Customer Summary Content */}
+            <div className="space-y-6">
+              {!selectedCustomer ? (
+                <div className="bg-white rounded-2xl shadow-lg p-8 text-center text-gray-600">
+                  <p className="text-lg font-medium mb-2">No customer selected</p>
+                  <p className="text-sm">Select an offline customer from the list on the left to view their summary.</p>
+                </div>
+              ) : (
+                <>
+                  {customerStats ? (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                      <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg">
+                        <CardBody className="p-5">
+                          <p className="text-blue-100 text-sm">Total Bills</p>
+                          <p className="text-3xl font-bold mt-1">{customerStats.totalPurchases}</p>
+                          <p className="text-blue-100 text-xs mt-1">Number of invoices for this customer</p>
+                        </CardBody>
+                      </Card>
+
+                      <Card className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-2xl shadow-lg">
+                        <CardBody className="p-5">
+                          <p className="text-emerald-100 text-sm">Total Purchased</p>
+                          <p className="text-3xl font-bold mt-1">Rs. {Number(customerStats.totalAmount || 0).toLocaleString('en-PK')}</p>
+                          <p className="text-emerald-100 text-xs mt-1">Sum of all bill totals</p>
+                        </CardBody>
+                      </Card>
+
+                      <Card className="bg-gradient-to-r from-indigo-500 to-indigo-600 text-white rounded-2xl shadow-lg">
+                        <CardBody className="p-5">
+                          <p className="text-indigo-100 text-sm">Total Paid</p>
+                          <p className="text-3xl font-bold mt-1">Rs. {Number(customerStats.totalPaid || 0).toLocaleString('en-PK')}</p>
+                          <p className="text-indigo-100 text-xs mt-1">All payments received</p>
+                        </CardBody>
+                      </Card>
+
+                      <Card className="bg-gradient-to-r from-rose-500 to-rose-600 text-white rounded-2xl shadow-lg">
+                        <CardBody className="p-5">
+                          <p className="text-rose-100 text-sm">Total Remaining</p>
+                          <p className="text-3xl font-bold mt-1">Rs. {Number(customerStats.totalRemaining || 0).toLocaleString('en-PK')}</p>
+                          <p className="text-rose-100 text-xs mt-1">Current outstanding balance</p>
+                        </CardBody>
+                      </Card>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-2xl shadow-inner p-6 text-center text-gray-500">
+                      Loading customer summary...
+                    </div>
+                  )}
+
+                  {/* Offline customers search (for summary view) */}
+                  <div className="bg-white rounded-2xl shadow-lg p-4 flex items-center justify-between gap-4">
+                    <div className="w-full md:w-1/2">
+                      <SearchBar
+                        value={offlineSearch}
+                        onChange={setOfflineSearch}
+                        placeholder="Search offline customers..."
+                      />
+                    </div>
+                    <div className="hidden md:flex text-xs text-gray-500">
+                      Filter offline customers shown below.
+                    </div>
+                  </div>
+
+                  {/* Offline customers list under search */}
+                  <div className="bg-white rounded-2xl shadow-lg p-4 space-y-3">
+                    <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto divide-y divide-gray-100">
+                      {paginatedOfflineCustomers.length === 0 ? (
+                        <div className="p-4 text-sm text-gray-500 text-center">
+                          No offline customers found.
+                        </div>
+                      ) : (
+                        paginatedOfflineCustomers.map((customer) => (
+                          <button
+                            key={customer._id}
+                            onClick={() => {
+                              setSelectedCustomer(customer);
+                              setCustomerHistoryPage(1);
+                            }}
+                            className={`w-full text-left p-3 hover:bg-gray-50 transition-colors ${
+                              selectedCustomer?._id === customer._id
+                                ? 'bg-blue-50 border-l-4 border-blue-500'
+                                : ''
+                            }`}
+                          >
+                            <div className="font-medium text-gray-900">{customer.name}</div>
+                            <div className="text-xs text-gray-600 mt-1">
+                              {customer.phone || 'No phone'}
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    {offlineTotalPages > 1 && (
+                      <div className="flex items-center justify-between text-sm text-gray-600 pt-1">
+                        <button
+                          onClick={() => setOfflinePage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentOfflinePage === 1}
+                          className="px-3 py-1 border border-gray-300 rounded-lg bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          Previous
+                        </button>
+                        <span className="font-medium">
+                          Page {currentOfflinePage} of {offlineTotalPages}
+                        </span>
+                        <button
+                          onClick={() => setOfflinePage((prev) => Math.min(offlineTotalPages, prev + 1))}
+                          disabled={currentOfflinePage === offlineTotalPages}
+                          className="px-3 py-1 border border-gray-300 rounded-lg bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="bg-white rounded-2xl shadow-lg p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                        <User size={22} />
+                        {selectedCustomer.name || 'Customer'}
+                      </h2>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {selectedCustomer.type ? `${selectedCustomer.type} customer` : 'Customer details summary'}
+                      </p>
+                      {selectedCustomer.phone && (
+                        <p className="text-sm text-gray-500 mt-1">Phone: {selectedCustomer.phone}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-3 justify-end items-center">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setCustomerHistoryPage(1)}
+                        className="text-sm"
+                      >
+                        Refresh Summary
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => setShowCustomerHistoryModal(true)}
+                        className="text-sm flex items-center gap-2"
+                      >
+                        <History size={18} />
+                        View Full History
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
+
+      {/* Add Customer Modal */}
+      <Modal
+        isOpen={isAddCustomerOpen}
+        onClose={() => {
+          setIsAddCustomerOpen(false);
+          setNewCustomerForm({ name: '', type: 'offline', phone: '', address: '' });
+        }}
+        title="Add New Customer"
+      >
+        <form onSubmit={handleCreateCustomerFromBilling} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+            <input
+              type="text"
+              required
+              value={newCustomerForm.name}
+              onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <select
+              required
+              value={newCustomerForm.type}
+              onChange={(e) => setNewCustomerForm({ ...newCustomerForm, type: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="online">Online</option>
+              <option value="offline">Offline</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
+            <input
+              type="tel"
+              value={newCustomerForm.phone}
+              onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Address (optional)</label>
+            <textarea
+              rows={3}
+              value={newCustomerForm.address}
+              onChange={(e) => setNewCustomerForm({ ...newCustomerForm, address: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div className="flex gap-3 mt-4">
+            <Button type="submit" className="flex-1">
+              Create Customer
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setIsAddCustomerOpen(false);
+                setNewCustomerForm({ name: '', type: 'offline', phone: '', address: '' });
+              }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Customer history modal */}
+      <Modal
+        isOpen={showCustomerHistoryModal}
+        onClose={() => {
+          setShowCustomerHistoryModal(false);
+          setSelectedHistoryBill(null);
+        }}
+        title={selectedCustomer ? `Billing History - ${selectedCustomer.name}` : 'Billing History'}
+      >
+        {!selectedCustomer ? (
+          <div className="text-sm text-gray-600">Select a customer to view history.</div>
+        ) : customerHistoryBills.length === 0 ? (
+          <div className="text-sm text-gray-600">No bills found for this customer.</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left font-medium text-gray-700">Bill #</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-700">Date</th>
+                    <th className="px-4 py-2 text-center font-medium text-gray-700">Items</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-700">Total</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-700">Paid</th>
+                    <th className="px-4 py-2 text-right font-medium text-gray-700">Remaining</th>
+                    <th className="px-4 py-2 text-center font-medium text-gray-700">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {customerHistoryBills.map((bill) => (
+                    <tr key={bill._id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-blue-700 font-semibold">{bill.billNumber}</td>
+                      <td className="px-4 py-2 text-gray-700">
+                        {new Date(bill.createdAt).toLocaleString('en-PK')}
+                      </td>
+                      <td className="px-4 py-2 text-center text-gray-700">{bill.items?.length || 0}</td>
+                      <td className="px-4 py-2 text-right font-semibold text-gray-900">Rs. {Number(bill.total || 0).toLocaleString('en-PK')}</td>
+                      <td className="px-4 py-2 text-right text-emerald-700">Rs. {Number(bill.amountPaid || 0).toLocaleString('en-PK')}</td>
+                      <td className="px-4 py-2 text-right text-rose-700">Rs. {Number(bill.remainingAmount || 0).toLocaleString('en-PK')}</td>
+                      <td className="px-4 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedHistoryBill(bill)}
+                          className="text-xs px-3 py-1 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-gray-700"
+                        >
+                          Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {selectedHistoryBill && (
+              <div className="mt-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800">
+                      Bill #{selectedHistoryBill.billNumber}
+                    </h4>
+                    <p className="text-xs text-gray-500">
+                      {new Date(selectedHistoryBill.createdAt).toLocaleString('en-PK')}
+                    </p>
+                  </div>
+                  <div className="text-xs text-gray-600 text-right">
+                    <div>
+                      Total: <span className="font-semibold text-gray-900">Rs. {Number(selectedHistoryBill.total || 0).toLocaleString('en-PK')}</span>
+                    </div>
+                    <div>
+                      Paid: <span className="font-semibold text-emerald-700">Rs. {Number(selectedHistoryBill.amountPaid || 0).toLocaleString('en-PK')}</span>
+                    </div>
+                    <div>
+                      Remaining: <span className="font-semibold text-rose-700">Rs. {Number(selectedHistoryBill.remainingAmount || 0).toLocaleString('en-PK')}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 border-t border-gray-200 pt-2 max-h-56 overflow-y-auto bg-white rounded-md">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-gray-700">Product</th>
+                        <th className="px-3 py-2 text-center font-medium text-gray-700">Qty</th>
+                        <th className="px-3 py-2 text-right font-medium text-gray-700">Unit</th>
+                        <th className="px-3 py-2 text-right font-medium text-gray-700">Line Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {(selectedHistoryBill.items || []).map((item, idx) => (
+                        <tr key={idx}>
+                          <td className="px-3 py-1 text-gray-800">
+                            <div className="font-medium">{item.name}</div>
+                            {item.model && (
+                              <div className="text-[11px] text-gray-500">Model: {item.model}</div>
+                            )}
+                          </td>
+                          <td className="px-3 py-1 text-center text-gray-700">{item.quantity}</td>
+                          <td className="px-3 py-1 text-right text-gray-700">Rs. {Number(item.selectedPrice || 0).toLocaleString('en-PK')}</td>
+                          <td className="px-3 py-1 text-right font-semibold text-gray-900">Rs. {Number(item.totalAmount || (item.selectedPrice || 0) * (item.quantity || 0)).toLocaleString('en-PK')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {customerStats && (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm border-t border-gray-200 pt-3">
+                <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                  <span className="text-gray-600">Total Billed</span>
+                  <span className="font-semibold text-gray-900">
+                    Rs. {Number(customerStats.totalAmount || 0).toLocaleString('en-PK')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                  <span className="text-gray-600">Total Paid</span>
+                  <span className="font-semibold text-emerald-700">
+                    Rs. {Number(customerStats.totalPaid || 0).toLocaleString('en-PK')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                  <span className="text-gray-600">Total Remaining</span>
+                  <span className="font-semibold text-rose-700">
+                    Rs. {Number(customerStats.totalRemaining || 0).toLocaleString('en-PK')}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {customerHistoryPagination && customerHistoryPagination.pages > 1 && (
+              <div className="flex items-center justify-between text-xs text-gray-600">
+                <div>
+                  Page {customerHistoryPagination.current} of {customerHistoryPagination.pages} ({customerHistoryPagination.total} bills)
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCustomerHistoryPage((prev) => Math.max(1, prev - 1))}
+                    disabled={customerHistoryPagination.current === 1}
+                    className="px-3 py-1 border border-gray-300 rounded-lg bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomerHistoryPage((prev) => Math.min(customerHistoryPagination.pages, prev + 1))}
+                    disabled={customerHistoryPagination.current === customerHistoryPagination.pages}
+                    className="px-3 py-1 border border-gray-300 rounded-lg bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* Bill Receipt Modal */}
       {showReceipt && generatedBill && (
