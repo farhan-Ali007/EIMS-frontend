@@ -15,7 +15,8 @@ import {
   Truck,
   RotateCcw,
   DollarSign,
-  BookOpen
+  BookOpen,
+  Shield
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -38,7 +39,7 @@ const Layout = () => {
 
   const allNavItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'superadmin'] },
-    { path: '/admin-management', icon: Users, label: 'Admins', roles: ['admin', 'superadmin'] },
+    { path: '/admin-management', icon: Shield, label: 'Admins', roles: ['admin', 'superadmin'] },
     { path: '/products', icon: Package, label: 'Products', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/sellers', icon: Users, label: 'Sellers', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/customers', icon: UserCircle, label: 'Customers', roles: ['admin', 'superadmin', 'manager'] },

@@ -1154,11 +1154,10 @@ const Billing = () => {
                               setSelectedCustomer(customer);
                               setCustomerHistoryPage(1);
                             }}
-                            className={`w-full text-left p-3 hover:bg-gray-50 transition-colors ${
-                              selectedCustomer?._id === customer._id
+                            className={`w-full text-left p-3 hover:bg-gray-50 transition-colors ${selectedCustomer?._id === customer._id
                                 ? 'bg-blue-50 border-l-4 border-blue-500'
                                 : ''
-                            }`}
+                              }`}
                           >
                             <div className="font-medium text-gray-900">{customer.name}</div>
                             <div className="text-xs text-gray-600 mt-1">

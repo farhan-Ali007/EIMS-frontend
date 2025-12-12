@@ -51,6 +51,17 @@ const Customers = () => {
     }
   });
 
+  // Quick lookup map for products by name (to show model in customer list)
+  const productsByName = useMemo(() => {
+    const map = {};
+    products.forEach((p) => {
+      if (p?.name) {
+        map[p.name] = p;
+      }
+    });
+    return map;
+  }, [products]);
+
   // Load sellers for optional customer-seller association
   const { data: sellers = [] } = useQuery({
     queryKey: ['sellers-for-customers'],
@@ -147,7 +158,7 @@ const Customers = () => {
   // Filter and search customers based on active tab
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
-      const matchesSearch = 
+      const matchesSearch =
         customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         customer.phone?.includes(searchQuery) ||
         customer.address?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -198,7 +209,7 @@ const Customers = () => {
         </div>
       </div>
 
-            {/* Stats */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardBody>
@@ -213,7 +224,7 @@ const Customers = () => {
             </div>
           </CardBody>
         </Card>
-        
+
         <Card>
           <CardBody>
             <div className="flex items-center gap-3">
@@ -227,7 +238,7 @@ const Customers = () => {
             </div>
           </CardBody>
         </Card>
-        
+
         <Card>
           <CardBody>
             <div className="flex items-center gap-3">
@@ -249,46 +260,43 @@ const Customers = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
               <CardTitle className="text-xl font-bold text-gray-800">Customer Management</CardTitle>
-              
+
               {/* Tab Navigation */}
               <div className="flex bg-white rounded-xl p-1 shadow-sm border">
                 <button
                   onClick={() => setActiveTab('all')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    activeTab === 'all'
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'all'
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
                 >
                   <Users size={16} />
                   All ({customers.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('online')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    activeTab === 'online'
-                      ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'online'
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
                 >
                   <Globe size={16} />
                   Online ({onlineCount})
                 </button>
                 <button
                   onClick={() => setActiveTab('offline')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    activeTab === 'offline'
-                      ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'offline'
+                    ? 'bg-gradient-to-r from-teal-500 to-teal-600 text-white shadow-md'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
                 >
                   <MapPin size={16} />
                   Offline ({offlineCount})
                 </button>
               </div>
             </div>
-            
-            
+
+
             <div className="flex items-center gap-3">
               <SearchBar
                 value={searchQuery}
@@ -298,7 +306,7 @@ const Customers = () => {
               />
             </div>
           </div>
-          
+
           {searchQuery && (
             <div className="mt-3 text-sm text-gray-600">
               Found {filteredCustomers.length} customer(s) in {activeTab === 'all' ? 'all categories' : `${activeTab} customers`}
@@ -349,18 +357,22 @@ const Customers = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        customer.type === 'online' 
-                          ? 'bg-emerald-100 text-emerald-700' 
-                          : 'bg-teal-100 text-teal-700'
-                      }`}>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${customer.type === 'online'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-teal-100 text-teal-700'
+                        }`}>
                         {customer.type === 'online' ? '🌐 Online' : '📍 Offline'}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {typeof customer.price === 'number' ? customer.price.toLocaleString('en-PK') : '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{customer.product || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {customer.product || '-'}
+                      {customer.product && productsByName[customer.product]?.model
+                        ? ` (${productsByName[customer.product].model})`
+                        : ''}
+                    </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.seller?.name || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.phone || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.address || '-'}</td>
@@ -416,7 +428,7 @@ const Customers = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
             <select
@@ -429,7 +441,7 @@ const Customers = () => {
               <option value="offline">Offline</option>
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
             <input
@@ -439,7 +451,7 @@ const Customers = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
             <textarea
@@ -470,7 +482,6 @@ const Customers = () => {
                 value={productSearch}
                 onChange={(value) => {
                   setProductSearch(value);
-                  setFormData({ ...formData, product: value });
                   setShowProductSearch(true);
                 }}
                 placeholder="Search products by name, model, or category..."
@@ -485,7 +496,8 @@ const Customers = () => {
                       type="button"
                       onClick={() => {
                         const label = `${product.name} (${product.model})`;
-                        setFormData({ ...formData, product: label });
+                        // Store exact product name for backend matching / stock deduction
+                        setFormData((prev) => ({ ...prev, product: product.name }));
                         setProductSearch(label);
                         setShowProductSearch(false);
                       }}
@@ -539,14 +551,14 @@ const Customers = () => {
             </div>
             <p className="mt-1 text-xs text-gray-500">Optional: link the customer to a preferred seller.</p>
           </div>
-          
+
           <div className="flex gap-3 mt-6">
             <Button type="submit" className="flex-1">
               {editingCustomer ? 'Update Customer' : 'Create Customer'}
             </Button>
-            <Button 
-              type="button" 
-              variant="secondary" 
+            <Button
+              type="button"
+              variant="secondary"
               onClick={() => { setIsModalOpen(false); resetForm(); }}
               className="flex-1"
             >
