@@ -56,7 +56,7 @@ const Customers = () => {
     const map = {};
     products.forEach((p) => {
       if (p?.name) {
-        map[p.name] = p;
+        map[p.name.toLowerCase()] = p;
       }
     });
     return map;
@@ -369,8 +369,8 @@ const Customers = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {customer.product || '-'}
-                      {customer.product && productsByName[customer.product]?.model
-                        ? ` (${productsByName[customer.product].model})`
+                      {customer.product && productsByName[customer.product.toLowerCase()]?.model
+                        ? ` (${productsByName[customer.product.toLowerCase()].model})`
                         : ''}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.seller?.name || '-'}</td>

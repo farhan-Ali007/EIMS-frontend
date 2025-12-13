@@ -1,12 +1,6 @@
 import axios from 'axios';
 import {baseURL} from './baseURL'
 
-// export const API_URL =
-//   window.location.hostname === "localhost"
-//     ? "http://localhost:4000/api"
-//     : "https://etimad-inventory.up.railway.app/api";
-
-
 
 const api = axios.create({
   baseURL: baseURL,
