@@ -377,11 +377,13 @@ const Customers = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {customer.productInfo?.name || customer.product || '-'}
-                      {customer.productInfo?.model
-                        ? ` (${customer.productInfo.model})`
-                        : customer.product && productsByName[customer.product.toLowerCase()]?.model
-                          ? ` (${productsByName[customer.product.toLowerCase()].model})`
-                          : ''}
+                      {/* Prefer live product model from products list so model changes reflect immediately */}
+                      {(() => {
+                        const key = customer.product?.toLowerCase?.();
+                        const liveModel = key ? productsByName[key]?.model : undefined;
+                        const modelToShow = liveModel || customer.productInfo?.model;
+                        return modelToShow ? ` (${modelToShow})` : '';
+                      })()}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.seller?.name || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.phone || '-'}</td>
