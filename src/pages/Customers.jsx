@@ -24,7 +24,8 @@ const Customers = () => {
     price: '',
     phone: '',
     address: '',
-    product: '' // optional associated product
+    product: '', // optional associated product
+    productId: ''
   });
   const [productSearch, setProductSearch] = useState('');
   const [showProductSearch, setShowProductSearch] = useState(false);
@@ -99,6 +100,14 @@ const Customers = () => {
         delete payload.seller;
       }
 
+      if (!payload.product) {
+        delete payload.product;
+      }
+
+      if (!payload.productId) {
+        delete payload.productId;
+      }
+
       if (editingCustomer) {
         await updateCustomer(editingCustomer._id, payload);
         toast.success('Customer updated successfully');
@@ -119,6 +128,10 @@ const Customers = () => {
     setEditingCustomer(customer);
     const productNameForForm = customer.productInfo?.name || customer.product || '';
     const productModelForForm = customer.productInfo?.model;
+    const productIdForForm =
+      customer.productInfo?.productId ||
+      (productNameForForm ? productsByName[productNameForForm.toLowerCase()]?._id : '') ||
+      '';
 
     setFormData({
       name: customer.name,
@@ -127,6 +140,7 @@ const Customers = () => {
       phone: customer.phone || '',
       address: customer.address || '',
       product: productNameForForm,
+      productId: productIdForForm,
       seller: customer.seller?._id || ''
     });
     // Show name + model in the search input if we have both
@@ -155,7 +169,7 @@ const Customers = () => {
   const resetForm = () => {
     // Default to current tab type, or 'online' if 'all' is selected
     const defaultType = activeTab === 'all' ? 'online' : activeTab;
-    setFormData({ name: '', type: defaultType, price: '', phone: '', address: '', product: '', seller: '' });
+    setFormData({ name: '', type: defaultType, price: '', phone: '', address: '', product: '', productId: '', seller: '' });
     setProductSearch('');
     setShowProductSearch(false);
     setSellerSearch('');
@@ -496,9 +510,11 @@ const Customers = () => {
                   setProductSearch(value);
                   if (!value) {
                     // Clearing the search should also clear the selected product
-                    setFormData((prev) => ({ ...prev, product: '' }));
+                    setFormData((prev) => ({ ...prev, product: '', productId: '' }));
                     setShowProductSearch(false);
                   } else {
+                    const parsedName = value.split(' (')[0];
+                    setFormData((prev) => ({ ...prev, product: parsedName, productId: '' }));
                     setShowProductSearch(true);
                   }
                 }}
@@ -515,7 +531,7 @@ const Customers = () => {
                       onClick={() => {
                         const label = `${product.name} (${product.model})`;
                         // Store exact product name for backend matching / stock deduction
-                        setFormData((prev) => ({ ...prev, product: product.name }));
+                        setFormData((prev) => ({ ...prev, product: product.name, productId: product._id }));
                         setProductSearch(label);
                         setShowProductSearch(false);
                       }}
