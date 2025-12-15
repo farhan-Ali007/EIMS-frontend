@@ -117,16 +117,24 @@ const Customers = () => {
 
   const handleEdit = (customer) => {
     setEditingCustomer(customer);
+    const productNameForForm = customer.productInfo?.name || customer.product || '';
+    const productModelForForm = customer.productInfo?.model;
+
     setFormData({
       name: customer.name,
       type: customer.type,
       price: customer.price ?? '',
       phone: customer.phone || '',
       address: customer.address || '',
-      product: customer.product || '',
+      product: productNameForForm,
       seller: customer.seller?._id || ''
     });
-    setProductSearch(customer.product || '');
+    // Show name + model in the search input if we have both
+    if (productNameForForm && productModelForForm) {
+      setProductSearch(`${productNameForForm} (${productModelForForm})`);
+    } else {
+      setProductSearch(productNameForForm);
+    }
     setSellerSearch(customer.seller?.name || '');
     setIsModalOpen(true);
   };
@@ -368,10 +376,12 @@ const Customers = () => {
                       {typeof customer.price === 'number' ? customer.price.toLocaleString('en-PK') : '-'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {customer.product || '-'}
-                      {customer.product && productsByName[customer.product.toLowerCase()]?.model
-                        ? ` (${productsByName[customer.product.toLowerCase()].model})`
-                        : ''}
+                      {customer.productInfo?.name || customer.product || '-'}
+                      {customer.productInfo?.model
+                        ? ` (${customer.productInfo.model})`
+                        : customer.product && productsByName[customer.product.toLowerCase()]?.model
+                          ? ` (${productsByName[customer.product.toLowerCase()].model})`
+                          : ''}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.seller?.name || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.phone || '-'}</td>
@@ -482,7 +492,13 @@ const Customers = () => {
                 value={productSearch}
                 onChange={(value) => {
                   setProductSearch(value);
-                  setShowProductSearch(true);
+                  if (!value) {
+                    // Clearing the search should also clear the selected product
+                    setFormData((prev) => ({ ...prev, product: '' }));
+                    setShowProductSearch(false);
+                  } else {
+                    setShowProductSearch(true);
+                  }
                 }}
                 placeholder="Search products by name, model, or category..."
                 onFocus={() => setShowProductSearch(true)}
