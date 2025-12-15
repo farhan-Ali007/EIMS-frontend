@@ -45,7 +45,7 @@ const Customers = () => {
 
   // Load products for optional customer-product association
   const { data: products = [] } = useQuery({
-    queryKey: ['products-for-customers'],
+    queryKey: ['products'],
     queryFn: async () => {
       const response = await getProducts();
       return response.data;
