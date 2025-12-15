@@ -63,6 +63,17 @@ const Customers = () => {
     return map;
   }, [products]);
 
+  // Quick lookup map for products by id (authoritative)
+  const productsById = useMemo(() => {
+    const map = {};
+    products.forEach((p) => {
+      if (p?._id) {
+        map[String(p._id)] = p;
+      }
+    });
+    return map;
+  }, [products]);
+
   // Load sellers for optional customer-seller association
   const { data: sellers = [] } = useQuery({
     queryKey: ['sellers-for-customers'],
@@ -127,11 +138,13 @@ const Customers = () => {
   const handleEdit = (customer) => {
     setEditingCustomer(customer);
     const productNameForForm = customer.productInfo?.name || customer.product || '';
-    const productModelForForm = customer.productInfo?.model;
     const productIdForForm =
       customer.productInfo?.productId ||
       (productNameForForm ? productsByName[productNameForForm.toLowerCase()]?._id : '') ||
       '';
+
+    const liveProductForForm = productIdForForm ? productsById[String(productIdForForm)] : undefined;
+    const productModelForForm = liveProductForForm?.model || customer.productInfo?.model;
 
     setFormData({
       name: customer.name,
@@ -393,9 +406,13 @@ const Customers = () => {
                       {customer.productInfo?.name || customer.product || '-'}
                       {/* Prefer live product model from products list so model changes reflect immediately */}
                       {(() => {
-                        const key = customer.product?.toLowerCase?.();
-                        const liveModel = key ? productsByName[key]?.model : undefined;
-                        const modelToShow = liveModel || customer.productInfo?.model;
+                        const idKey = customer.productInfo?.productId
+                          ? String(customer.productInfo.productId)
+                          : undefined;
+                        const liveModelById = idKey ? productsById[idKey]?.model : undefined;
+                        const nameKey = (customer.productInfo?.name || customer.product)?.toLowerCase?.();
+                        const liveModelByName = nameKey ? productsByName[nameKey]?.model : undefined;
+                        const modelToShow = liveModelById || liveModelByName || customer.productInfo?.model;
                         return modelToShow ? ` (${modelToShow})` : '';
                       })()}
                     </td>
