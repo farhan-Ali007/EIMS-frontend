@@ -201,10 +201,14 @@ const Customers = () => {
   // Filter and search customers based on active tab
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
+      const q = searchQuery.toLowerCase();
       const matchesSearch =
-        customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        customer.name.toLowerCase().includes(q) ||
         customer.phone?.includes(searchQuery) ||
-        customer.address?.toLowerCase().includes(searchQuery.toLowerCase());
+        customer.address?.toLowerCase().includes(q) ||
+        customer.productInfo?.name?.toLowerCase?.().includes(q) ||
+        customer.productInfo?.model?.toLowerCase?.().includes(q) ||
+        customer.product?.toLowerCase?.().includes(q);
       const matchesTab = activeTab === 'all' || customer.type === activeTab;
       return matchesSearch && matchesTab;
     });
@@ -380,13 +384,13 @@ const Customers = () => {
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seller</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th> */}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
@@ -394,6 +398,17 @@ const Customers = () => {
               <tbody className="divide-y divide-gray-200">
                 {paginatedCustomers.length > 0 ? paginatedCustomers.map((customer) => (
                   <tr key={customer._id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
+                      {(() => {
+                        const sourceDate = customer.customDate || customer.updatedAt || customer.createdAt;
+                        if (!sourceDate) return '-';
+                        const d = new Date(sourceDate);
+                        const dd = String(d.getDate()).padStart(2, '0');
+                        const mm = String(d.getMonth() + 1).padStart(2, '0');
+                        const yyyy = String(d.getFullYear());
+                        return `${dd}-${mm}-${yyyy}`;
+                      })()}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <UserCircle size={16} className="text-gray-400" />
@@ -412,17 +427,6 @@ const Customers = () => {
                       {typeof customer.price === 'number' ? customer.price.toLocaleString('en-PK') : '-'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {customer.customDate
-                        ? (() => {
-                            const d = new Date(customer.customDate);
-                            const dd = String(d.getDate()).padStart(2, '0');
-                            const mm = String(d.getMonth() + 1).padStart(2, '0');
-                            const yyyy = String(d.getFullYear());
-                            return `${dd}-${mm}-${yyyy}`;
-                          })()
-                        : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
                       {customer.productInfo?.name || customer.product || '-'}
                       {/* Prefer live product model from products list so model changes reflect immediately */}
                       {(() => {
@@ -437,7 +441,7 @@ const Customers = () => {
                       })()}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.seller?.name || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{customer.phone || '-'}</td>
+                    {/* <td className="px-6 py-4 text-sm text-gray-600">{customer.phone || '-'}</td> */}
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.address || '-'}</td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
