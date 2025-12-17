@@ -25,7 +25,8 @@ const Customers = () => {
     phone: '',
     address: '',
     product: '', // optional associated product
-    productId: ''
+    productId: '',
+    customDate: ''
   });
   const [productSearch, setProductSearch] = useState('');
   const [showProductSearch, setShowProductSearch] = useState(false);
@@ -119,6 +120,10 @@ const Customers = () => {
         delete payload.productId;
       }
 
+      if (!payload.customDate) {
+        delete payload.customDate;
+      }
+
       if (editingCustomer) {
         await updateCustomer(editingCustomer._id, payload);
         toast.success('Customer updated successfully');
@@ -154,6 +159,9 @@ const Customers = () => {
       address: customer.address || '',
       product: productNameForForm,
       productId: productIdForForm,
+      customDate: customer.customDate
+        ? new Date(customer.customDate).toISOString().slice(0, 10)
+        : '',
       seller: customer.seller?._id || ''
     });
     // Show name + model in the search input if we have both
@@ -182,7 +190,7 @@ const Customers = () => {
   const resetForm = () => {
     // Default to current tab type, or 'online' if 'all' is selected
     const defaultType = activeTab === 'all' ? 'online' : activeTab;
-    setFormData({ name: '', type: defaultType, price: '', phone: '', address: '', product: '', productId: '', seller: '' });
+    setFormData({ name: '', type: defaultType, price: '', phone: '', address: '', product: '', productId: '', customDate: '', seller: '' });
     setProductSearch('');
     setShowProductSearch(false);
     setSellerSearch('');
@@ -375,6 +383,7 @@ const Customers = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seller</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
@@ -401,6 +410,17 @@ const Customers = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {typeof customer.price === 'number' ? customer.price.toLocaleString('en-PK') : '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {customer.customDate
+                        ? (() => {
+                            const d = new Date(customer.customDate);
+                            const dd = String(d.getDate()).padStart(2, '0');
+                            const mm = String(d.getMonth() + 1).padStart(2, '0');
+                            const yyyy = String(d.getFullYear());
+                            return `${dd}-${mm}-${yyyy}`;
+                          })()
+                        : '-'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {customer.productInfo?.name || customer.product || '-'}
@@ -434,7 +454,7 @@ const Customers = () => {
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
                       No customers found. {searchQuery && 'Try adjusting your search.'}
                     </td>
                   </tr>
@@ -514,6 +534,16 @@ const Customers = () => {
               onChange={(e) => setFormData({ ...formData, price: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Enter price for this customer"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date (optional)</label>
+            <input
+              type="date"
+              value={formData.customDate}
+              onChange={(e) => setFormData({ ...formData, customDate: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 

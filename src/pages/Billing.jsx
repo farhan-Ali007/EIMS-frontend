@@ -1,5 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Calculator, History, Minus, Package, Plus, Receipt, ShoppingCart, Trash2, User, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  Calculator,
+  History,
+  Minus,
+  Package,
+  Plus,
+  Receipt,
+  ShoppingCart,
+  Trash2,
+  User,
+  X
+} from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import BillingHistory from '../components/BillingHistory';
@@ -1155,8 +1167,8 @@ const Billing = () => {
                               setCustomerHistoryPage(1);
                             }}
                             className={`w-full text-left p-3 hover:bg-gray-50 transition-colors ${selectedCustomer?._id === customer._id
-                                ? 'bg-blue-50 border-l-4 border-blue-500'
-                                : ''
+                              ? 'bg-blue-50 border-l-4 border-blue-500'
+                              : ''
                               }`}
                           >
                             <div className="font-medium text-gray-900">{customer.name}</div>
