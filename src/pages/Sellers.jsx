@@ -36,6 +36,43 @@ const Sellers = () => {
     loading: false
   });
 
+  const [historyMonth, setHistoryMonth] = useState('all');
+
+  const historyMonths = useMemo(() => {
+    const set = new Set();
+    (historyModal.sales || []).forEach((sale) => {
+      if (!sale?.createdAt) return;
+      const d = new Date(sale.createdAt);
+      if (Number.isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      set.add(key);
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [historyModal.sales]);
+
+  const filteredHistorySales = useMemo(() => {
+    if (historyMonth === 'all') return historyModal.sales || [];
+    return (historyModal.sales || []).filter((sale) => {
+      if (!sale?.createdAt) return false;
+      const d = new Date(sale.createdAt);
+      if (Number.isNaN(d.getTime())) return false;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return key === historyMonth;
+    });
+  }, [historyModal.sales, historyMonth]);
+
+  const historyTotals = useMemo(() => {
+    return (filteredHistorySales || []).reduce(
+      (acc, sale) => {
+        acc.totalRevenue += Number(sale?.total || 0);
+        acc.totalCommission += Number(sale?.commission || 0);
+        acc.totalProductsSold += Number(sale?.quantity || 0);
+        return acc;
+      },
+      { totalRevenue: 0, totalCommission: 0, totalProductsSold: 0 }
+    );
+  }, [filteredHistorySales]);
+
   const { data: sellers = [] } = useQuery({
     queryKey: ['sellers'],
     queryFn: async () => {
@@ -106,6 +143,7 @@ const Sellers = () => {
     try {
       const response = await getSeller(seller._id);
       const data = response.data || {};
+      setHistoryMonth('all');
       setHistoryModal((prev) => ({
         ...prev,
         seller: data.seller || seller,
@@ -488,20 +526,49 @@ const Sellers = () => {
             <div className="text-sm text-gray-500">No history found for this seller.</div>
           ) : (
             <>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="text-xs text-gray-600 font-medium">Month:</div>
+                <select
+                  value={historyMonth}
+                  onChange={(e) => setHistoryMonth(e.target.value)}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="all">All</option>
+                  {historyMonths.map((m) => {
+                    const [yy, mm] = m.split('-');
+                    const label = new Date(Number(yy), Number(mm) - 1, 1).toLocaleString('en-US', {
+                      month: 'long',
+                      year: 'numeric'
+                    });
+                    return (
+                      <option key={m} value={m}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
               <div className="flex flex-wrap items-center gap-3 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
                 <span>
                   <span className="font-semibold">Commission rate:</span>{' '}
                   Rs. {(historyModal.seller?.commissionRate ?? 0).toLocaleString('en-PK')}
                 </span>
                 <span>
-                  <span className="font-semibold">Products:</span>{' '}
-                  {historyModal.sales.length}
+                  <span className="font-semibold">Sales:</span>{' '}
+                  {filteredHistorySales.length}
                 </span>
                 <span>
-                  <span className="font-semibold">{historyModal.seller?.commissionRate} × {historyModal.sales.length}=</span>{' '}
-                  Rs. {(
-                    (historyModal.seller?.commissionRate ?? 0) * historyModal.sales.length
-                  ).toLocaleString('en-PK')}
+                  <span className="font-semibold">Products:</span>{' '}
+                  {historyTotals.totalProductsSold}
+                </span>
+                <span>
+                  <span className="font-semibold">Revenue:</span>{' '}
+                  Rs. {historyTotals.totalRevenue.toLocaleString('en-PK')}
+                </span>
+                <span>
+                  <span className="font-semibold">Commission:</span>{' '}
+                  Rs. {historyTotals.totalCommission.toLocaleString('en-PK')}
                 </span>
               </div>
               <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-lg">
@@ -515,7 +582,7 @@ const Sellers = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {historyModal.sales.map((sale) => (
+                    {filteredHistorySales.map((sale) => (
                       <tr key={sale._id}>
                         <td className="px-3 py-2 text-xs text-gray-800">
                           {sale.productName || sale.productId?.name || '-'}-{sale.productId?.model}

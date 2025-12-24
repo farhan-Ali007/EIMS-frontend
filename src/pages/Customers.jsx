@@ -390,7 +390,7 @@ const Customers = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seller</th>
-                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th> */}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
@@ -441,7 +441,7 @@ const Customers = () => {
                       })()}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.seller?.name || '-'}</td>
-                    {/* <td className="px-6 py-4 text-sm text-gray-600">{customer.phone || '-'}</td> */}
+                    <td className="px-6 py-4 text-sm text-gray-600">{customer.phone || '-'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{customer.address || '-'}</td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
@@ -580,13 +580,17 @@ const Customers = () => {
                       key={product._id}
                       type="button"
                       onClick={() => {
+                        if (Number(product.stock || 0) <= 0) {
+                          toast.error('Product is out of stock');
+                          return;
+                        }
                         const label = `${product.name} (${product.model})`;
                         // Store exact product name for backend matching / stock deduction
                         setFormData((prev) => ({ ...prev, product: product.name, productId: product._id }));
                         setProductSearch(label);
                         setShowProductSearch(false);
                       }}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b last:border-b-0 border-gray-100"
+                      className={`w-full px-3 py-2 text-left border-b last:border-b-0 border-gray-100 ${Number(product.stock || 0) <= 0 ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:bg-gray-50'}`}
                     >
                       <div className="font-medium text-gray-900">{product.name}</div>
                       <div className="text-xs text-gray-600">Model: {product.model} • {product.category}</div>
