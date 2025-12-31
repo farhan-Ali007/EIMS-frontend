@@ -116,6 +116,8 @@ export const createReturn = (data) => api.post('/returns', data);
 export const getParcels = (params) => api.get('/parcels', { params });
 export const createParcel = (data) => api.post('/parcels', data);
 export const updateParcelStatus = (id, data) => api.patch(`/parcels/${id}/status`, data);
+export const updateParcel = (id, data) => api.put(`/parcels/${id}`, data);
+export const deleteParcel = (id) => api.delete(`/parcels/${id}`);
 
 // Book PO orders (Urdu chits)
 export const getBookPOs = (params) => api.get('/book-po', { params });

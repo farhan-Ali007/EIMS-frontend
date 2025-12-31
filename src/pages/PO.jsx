@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getProducts, getParcels, createParcel, updateParcelStatus } from '../services/api';
+import { getProducts, getParcels, createParcel, updateParcelStatus, updateParcel, deleteParcel } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
+import Modal from '../components/Modal';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
-import { Package, Truck, MapPin, Hash, CheckCircle } from 'lucide-react';
+import { Package, Truck, MapPin, Hash, CheckCircle, Edit, Trash2 } from 'lucide-react';
 
 const PO = () => {
   const toast = useToast();
@@ -31,6 +32,23 @@ const PO = () => {
   const [filterPayment, setFilterPayment] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const [editModal, setEditModal] = useState({
+    isOpen: false,
+    parcelId: null,
+    productSearch: '',
+    selectedProductId: '',
+    form: {
+      trackingNumber: '',
+      customerName: '',
+      address: '',
+      codAmount: '',
+      parcelDate: today,
+      status: 'processing',
+      paymentStatus: 'unpaid',
+      notes: ''
+    }
+  });
 
   // Products for dropdown
   const { data: products = [] } = useQuery({
@@ -70,6 +88,16 @@ const PO = () => {
     );
   }, [products, productSearch]);
 
+  const filteredEditProducts = useMemo(() => {
+    if (!editModal.productSearch.trim()) return products;
+    const q = editModal.productSearch.toLowerCase();
+    return products.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.model.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q)
+    );
+  }, [products, editModal.productSearch]);
+
   // Parcels already paginated from backend
   const filteredParcels = parcels;
   const paginatedParcels = parcels;
@@ -82,6 +110,110 @@ const PO = () => {
     } catch (error) {
       console.error('Error updating parcel status:', error);
       const msg = error.response?.data?.message || 'Failed to update parcel';
+      toast.error(msg);
+    }
+  };
+
+  const openEdit = (parcel) => {
+    const productLabel = parcel.product
+      ? `${parcel.product.name} (${parcel.product.model})`
+      : '';
+
+    const dateValue = parcel.parcelDate
+      ? new Date(parcel.parcelDate).toISOString().slice(0, 10)
+      : today;
+
+    setEditModal({
+      isOpen: true,
+      parcelId: parcel._id,
+      productSearch: productLabel,
+      selectedProductId: parcel.product?._id ? String(parcel.product._id) : '',
+      form: {
+        trackingNumber: parcel.trackingNumber || '',
+        customerName: parcel.customerName || '',
+        address: parcel.address || '',
+        codAmount: typeof parcel.codAmount === 'number' ? String(parcel.codAmount) : '',
+        parcelDate: dateValue,
+        status: parcel.status || 'processing',
+        paymentStatus: parcel.paymentStatus || 'unpaid',
+        notes: parcel.notes || ''
+      }
+    });
+  };
+
+  const closeEdit = () => {
+    setEditModal({
+      isOpen: false,
+      parcelId: null,
+      productSearch: '',
+      selectedProductId: '',
+      form: {
+        trackingNumber: '',
+        customerName: '',
+        address: '',
+        codAmount: '',
+        parcelDate: today,
+        status: 'processing',
+        paymentStatus: 'unpaid',
+        notes: ''
+      }
+    });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editModal.selectedProductId) {
+      toast.error('Please select a product');
+      return;
+    }
+    if (!editModal.form.customerName.trim()) {
+      toast.error('Customer name is required');
+      return;
+    }
+    if (!editModal.form.trackingNumber.trim() || !editModal.form.address.trim()) {
+      toast.error('Tracking number and address are required');
+      return;
+    }
+
+    try {
+      await updateParcel(editModal.parcelId, {
+        productId: editModal.selectedProductId,
+        customerName: editModal.form.customerName.trim(),
+        trackingNumber: editModal.form.trackingNumber.trim(),
+        address: editModal.form.address.trim(),
+        codAmount: Number(editModal.form.codAmount || 0),
+        parcelDate: editModal.form.parcelDate || today,
+        status: editModal.form.status,
+        paymentStatus: editModal.form.paymentStatus,
+        notes: editModal.form.notes.trim()
+      });
+
+      toast.success('Parcel updated');
+      closeEdit();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['parcels'] }),
+        queryClient.invalidateQueries({ queryKey: ['products'] })
+      ]);
+    } catch (error) {
+      console.error('Error updating parcel:', error);
+      const msg = error.response?.data?.message || 'Failed to update parcel';
+      toast.error(msg);
+    }
+  };
+
+  const handleDelete = async (parcel) => {
+    const ok = window.confirm('Delete this parcel?');
+    if (!ok) return;
+    try {
+      await deleteParcel(parcel._id);
+      toast.success('Parcel deleted');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['parcels'] }),
+        queryClient.invalidateQueries({ queryKey: ['products'] })
+      ]);
+    } catch (error) {
+      console.error('Error deleting parcel:', error);
+      const msg = error.response?.data?.message || 'Failed to delete parcel';
       toast.error(msg);
     }
   };
@@ -354,6 +486,7 @@ const PO = () => {
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Payment</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created By</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -413,11 +546,21 @@ const PO = () => {
                       <td className="px-4 py-2 text-xs text-gray-700">
                         {p.createdBy ? p.createdBy.username || p.createdBy.email : '-'}
                       </td>
+                      <td className="px-4 py-2 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => openEdit(p)}>
+                            <Edit size={16} />
+                          </Button>
+                          <Button variant="danger" size="sm" onClick={() => handleDelete(p)}>
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-gray-500 text-sm">
+                    <td colSpan="10" className="px-4 py-8 text-center text-gray-500 text-sm">
                       No parcels found. Try adjusting your filters.
                     </td>
                   </tr>
@@ -439,6 +582,145 @@ const PO = () => {
           )}
         </CardBody>
       </Card>
+
+      <Modal isOpen={editModal.isOpen} onClose={closeEdit} title="Edit Parcel">
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
+              <input
+                type="text"
+                value={editModal.productSearch}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, productSearch: e.target.value }))}
+                placeholder="Search by name, model, or category..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+              {editModal.productSearch && filteredEditProducts.length > 0 && (
+                <div className="mt-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-lg text-sm">
+                  {filteredEditProducts.map((p) => (
+                    <button
+                      type="button"
+                      key={p._id}
+                      onClick={() => {
+                        if (Number(p.stock || 0) <= 0 && String(p._id) !== String(editModal.selectedProductId)) {
+                          toast.error('Product is out of stock');
+                          return;
+                        }
+                        setEditModal((prev) => ({
+                          ...prev,
+                          selectedProductId: p._id,
+                          productSearch: `${p.name} (${p.model})`
+                        }));
+                      }}
+                      className={`w-full text-left px-3 py-2 border-b last:border-b-0 ${Number(p.stock || 0) <= 0 && String(p._id) !== String(editModal.selectedProductId) ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:bg-gray-50'}`}
+                    >
+                      <div className="font-medium text-gray-900">{p.name}</div>
+                      <div className="text-xs text-gray-600">Model: {p.model} • {p.category}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">COD Amount</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={editModal.form.codAmount}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, codAmount: e.target.value } }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <input
+                type="date"
+                value={editModal.form.parcelDate}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, parcelDate: e.target.value } }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+              <input
+                type="text"
+                value={editModal.form.customerName}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, customerName: e.target.value } }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
+              <input
+                type="text"
+                value={editModal.form.trackingNumber}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, trackingNumber: e.target.value } }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                required
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+              <textarea
+                value={editModal.form.address}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, address: e.target.value } }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                rows={2}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={editModal.form.status}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, status: e.target.value } }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="processing">Processing</option>
+                <option value="delivered">Delivered</option>
+                <option value="return">Return</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Payment</label>
+              <select
+                value={editModal.form.paymentStatus}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, paymentStatus: e.target.value } }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              >
+                <option value="unpaid">Unpaid</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+              <input
+                type="text"
+                value={editModal.form.notes}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, notes: e.target.value } }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={closeEdit}>
+              Cancel
+            </Button>
+            <Button type="submit">Save Changes</Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
