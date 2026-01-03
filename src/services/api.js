@@ -10,6 +10,8 @@ const api = axios.create({
   withCredentials: true
 });
 
+const API_URL = baseURL;
+
 // Add token to requests
 api.interceptors.request.use(
   (config) => {

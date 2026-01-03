@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createBookPO, getBookPOs, updateBookPO } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
+import SearchBar from '../components/SearchBar';
 import { useToast } from '../context/ToastContext';
 import { Printer, CheckCircle, User, Phone, MapPin, Hash } from 'lucide-react';
 
@@ -21,6 +22,7 @@ const BookPO = () => {
   const [ordersToPrint, setOrdersToPrint] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const { data: orders = [] } = useQuery({
     queryKey: ['book-po-orders'],
@@ -118,7 +120,43 @@ const BookPO = () => {
     }, 0);
   };
 
-  const formattedOrders = useMemo(() => orders, [orders]);
+  const filteredOrders = useMemo(() => {
+    const normalizeText = (input) => {
+      if (input == null) return '';
+
+      const s = String(input)
+        .normalize('NFKC')
+        // Remove Arabic diacritics
+        .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+        // Remove tatweel
+        .replace(/\u0640/g, '')
+        // Normalize common Arabic -> Urdu/Persian letter variants
+        .replace(/[\u064A\u0649]/g, 'ی')
+        .replace(/\u0643/g, 'ک')
+        // Normalize Arabic-Indic digits ٠١٢٣٤٥٦٧٨٩
+        .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+        // Normalize Eastern Arabic-Indic digits ۰۱۲۳۴۵۶۷۸۹
+        .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
+
+      return s.toLowerCase();
+    };
+
+    const q = normalizeText(searchQuery.trim());
+    if (!q) return orders;
+
+    const flatten = (value) => {
+      if (value == null) return [];
+      if (value instanceof Date) return [value.toISOString()];
+      if (Array.isArray(value)) return value.flatMap(flatten);
+      if (typeof value === 'object') return Object.values(value).flatMap(flatten);
+      return [String(value)];
+    };
+
+    return orders.filter((order) => {
+      const haystack = normalizeText(flatten(order).join(' '));
+      return haystack.includes(q);
+    });
+  }, [orders, searchQuery]);
 
   return (
     <>
@@ -226,16 +264,19 @@ const BookPO = () => {
         {/* Orders List */}
         <Card className="shadow-lg border-0 bg-white rounded-2xl overflow-hidden">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Orders list</span>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <CardTitle>Orders list</CardTitle>
               <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-500">Total: {formattedOrders.length}</span>
+                <div className="w-64">
+                  <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search orders..." />
+                </div>
+                <span className="text-sm text-gray-500">Total: {filteredOrders.length}</span>
                 <Button type="button" className="flex items-center text-xs gap-2" onClick={handlePrintSelected}>
                   <Printer size={16} />
                   Print selected orders
                 </Button>
               </div>
-            </CardTitle>
+            </div>
           </CardHeader>
           <CardBody className="p-0">
             <div className="overflow-x-auto">
@@ -251,14 +292,14 @@ const BookPO = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {formattedOrders.length === 0 ? (
+                  {filteredOrders.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-6 text-center text-gray-500 text-sm">
                         No orders yet.
                       </td>
                     </tr>
                   ) : (
-                    formattedOrders.map((order) => (
+                    filteredOrders.map((order) => (
                       <tr key={order._id} className="hover:bg-gray-50">
                         <td className="px-4 py-2 text-center">
                           <input

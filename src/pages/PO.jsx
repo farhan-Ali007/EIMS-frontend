@@ -30,6 +30,8 @@ const PO = () => {
   const [filterTracking, setFilterTracking] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPayment, setFilterPayment] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -61,7 +63,7 @@ const PO = () => {
 
   // Parcels list with server-side pagination & filters
   const { data: parcelsResponse } = useQuery({
-    queryKey: ['parcels', { page: currentPage, tracking: filterTracking, status: filterStatus, paymentStatus: filterPayment }],
+    queryKey: ['parcels', { page: currentPage, tracking: filterTracking, status: filterStatus, paymentStatus: filterPayment, date: filterDate, month: filterMonth }],
     queryFn: async () => {
       const res = await getParcels({
         page: currentPage,
@@ -69,6 +71,8 @@ const PO = () => {
         tracking: filterTracking || undefined,
         status: filterStatus || undefined,
         paymentStatus: filterPayment || undefined,
+        date: filterDate || undefined,
+        month: filterMonth || undefined,
       });
       return res.data;
     }
@@ -452,6 +456,32 @@ const PO = () => {
                 placeholder="Search by tracking number..."
               />
             </div>
+            <input
+              type="date"
+              value={filterDate}
+              onChange={(e) => {
+                setFilterDate(e.target.value);
+                if (e.target.value) {
+                  setFilterMonth('');
+                }
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              title="Filter by exact date"
+            />
+            <input
+              type="month"
+              value={filterMonth}
+              onChange={(e) => {
+                setFilterMonth(e.target.value);
+                if (e.target.value) {
+                  setFilterDate('');
+                }
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              title="Filter by month"
+            />
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
@@ -482,7 +512,7 @@ const PO = () => {
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">COD</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[320px] w-[420px]">Address</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Payment</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created By</th>
@@ -492,7 +522,16 @@ const PO = () => {
               <tbody className="divide-y divide-gray-100">
                 {paginatedParcels.length > 0 ? (
                   paginatedParcels.map((p) => (
-                    <tr key={p._id} className="hover:bg-gray-50">
+                    <tr
+                      key={p._id}
+                      className={
+                        p.status === 'delivered'
+                          ? 'bg-green-200 hover:bg-green-300'
+                          : p.status === 'return'
+                            ? 'bg-red-200 hover:bg-red-300'
+                            : 'bg-yellow-200 hover:bg-yellow-300'
+                      }
+                    >
                       <td className="px-4 py-2 font-medium text-gray-800 flex items-center gap-2">
                         <Hash size={14} className="text-gray-400" />
                         {p.trackingNumber}
@@ -514,9 +553,12 @@ const PO = () => {
                         {typeof p.codAmount === 'number' ? p.codAmount.toLocaleString('en-PK') : '-'}
                       </td>
                       <td className="px-4 py-2 text-xs text-gray-700">
-                        {p.parcelDate ? new Date(p.parcelDate).toLocaleDateString('en-GB') : ''}
+                        {(() => {
+                          const d = p.createdAt || p.parcelDate;
+                          return d ? new Date(d).toLocaleDateString('en-GB') : '';
+                        })()}
                       </td>
-                      <td className="px-4 py-2 text-xs text-gray-700 max-w-xs break-words">
+                      <td className="px-4 py-2 text-xs text-gray-700 min-w-[250px] w-[300px] max-w-[400px] break-words">
                         <div className="flex items-start gap-1">
                           <MapPin size={12} className="mt-0.5 text-gray-400" />
                           <span>{p.address}</span>
