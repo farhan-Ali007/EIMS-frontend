@@ -63,12 +63,12 @@ const PO = () => {
 
   // Parcels list with server-side pagination & filters
   const { data: parcelsResponse } = useQuery({
-    queryKey: ['parcels', { page: currentPage, tracking: filterTracking, status: filterStatus, paymentStatus: filterPayment, date: filterDate, month: filterMonth }],
+    queryKey: ['parcels', { page: currentPage, search: filterTracking, status: filterStatus, paymentStatus: filterPayment, date: filterDate, month: filterMonth }],
     queryFn: async () => {
       const res = await getParcels({
         page: currentPage,
         limit: itemsPerPage,
-        tracking: filterTracking || undefined,
+        search: filterTracking || undefined,
         status: filterStatus || undefined,
         paymentStatus: filterPayment || undefined,
         date: filterDate || undefined,
@@ -452,8 +452,11 @@ const PO = () => {
             <div className="flex-1">
               <SearchBar
                 value={filterTracking}
-                onChange={setFilterTracking}
-                placeholder="Search by tracking number..."
+                onChange={(v) => {
+                  setFilterTracking(v);
+                  setCurrentPage(1);
+                }}
+                placeholder="Search parcels (English/Urdu) ..."
               />
             </div>
             <input
@@ -529,7 +532,7 @@ const PO = () => {
                           ? 'bg-green-200 hover:bg-green-300'
                           : p.status === 'return'
                             ? 'bg-red-200 hover:bg-red-300'
-                            : 'bg-yellow-200 hover:bg-yellow-300'
+                            : 'bg-white'
                       }
                     >
                       <td className="px-4 py-2 font-medium text-gray-800 flex items-center gap-2">
