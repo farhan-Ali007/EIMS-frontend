@@ -319,7 +319,13 @@ const BookPO = () => {
                             <span className='urdu-text text-[14px]'>{order.toAddress}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-2 text-xs text-gray-800">{order.weight}</td>
+                        <td
+                          style={{ fontFamily: 'JameelNooriNastaleeq, serif' }}
+                          className="px-4 py-2 text-xs text-gray-800"
+                          dir="rtl"
+                        >
+                          {order.weight} گرام
+                        </td>
                         <td className="px-4 py-2 text-xs text-gray-800">Rs. {Number(order.amount || 0).toLocaleString('en-PK')}</td>
                         <td className="px-4 py-2 text-xs text-gray-600">
                           {new Date(order.createdAt).toLocaleString('en-PK')}
@@ -377,7 +383,7 @@ const BookPO = () => {
                     فون نمبر: <span dir="ltr">{order.toPhone}</span>
                   </div>
                   <div>پتہ: {order.toAddress}</div>
-                  <div>وزن: {order.weight}</div>
+                  <div dir="rtl">وزن: {order.weight} گرام</div>
                   <div>
                     رقم: Rs. {Number(order.amount || 0).toLocaleString('en-PK')}
                   </div>
