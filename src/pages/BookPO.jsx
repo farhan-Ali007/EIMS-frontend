@@ -375,6 +375,7 @@ const BookPO = () => {
 
             <div className="relative z-10 text-lg leading-relaxed w-full">
               {/* To section: heading on its own line, details below on right */}
+              <h3 className='text-center font-bold'>BU = 202</h3>
               <div className="mb-4 urdu-text">
                 <div className="font-bold text-lg text-left">To</div>
                 <div className="mt-1 text-right urdu-text" dir="rtl">
@@ -401,11 +402,11 @@ const BookPO = () => {
                     فون نمبر: <span dir="ltr">0307-1111832</span>
                   </div>
                   <div>
-                    پتہ: محلہ طارق آباد، چاچڑاں روڈ ظاہر پیر، تحصیل خان پور، ضلع رحیم یار خان
+                    پتہ: HashStack Technologies  چاچڑاں روڈ ظاہر پیر، تحصیل خان پور، ضلع رحیم یار خان
                   </div>
-                  <div className='font-bold'>
-                    نوٹ: گاہک سے رابطہ کریں اور اسے پہنچانے کی کوشش ضرور کریں۔
-
+                  <hr className='my-2'></hr>
+                  <div className='font-bold' dir="rtl">
+                    نوٹ: پارسل واپس بھیجنے سے پہلے <span dir="ltr" className='mx-1'>0307-1111832</span> پر رابطہ کرنے کی کوشش ضرورکریں -شکریہ
                   </div>
                 </div>
               </div>
