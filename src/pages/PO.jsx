@@ -13,13 +13,24 @@ const PO = () => {
   const toast = useToast();
   const queryClient = useQueryClient();
 
+  const toLocalDateInputValue = (value) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  };
+
   const [showForm, setShowForm] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [showProductSearch, setShowProductSearch] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
-  const today = new Date().toISOString().slice(0, 10);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [primaryQuantity, setPrimaryQuantity] = useState(1);
+  const today = toLocalDateInputValue(new Date());
   const [form, setForm] = useState({
     trackingNumber: '',
     customerName: '',
+    phone: '',
     address: '',
     codAmount: '',
     parcelDate: today,
@@ -35,14 +46,26 @@ const PO = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  const formatDateUTC = (value) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-GB', { timeZone: 'UTC' });
+  };
+
   const [editModal, setEditModal] = useState({
     isOpen: false,
     parcelId: null,
     productSearch: '',
+    showProductSearch: false,
     selectedProductId: '',
+    selectedProducts: [],
+    primaryQuantity: 1,
+    originalProducts: [],
     form: {
       trackingNumber: '',
       customerName: '',
+      phone: '',
       address: '',
       codAmount: '',
       parcelDate: today,
@@ -52,6 +75,9 @@ const PO = () => {
     }
   });
 
+  const [isProductsModalOpen, setIsProductsModalOpen] = useState(false);
+  const [productsModalParcel, setProductsModalParcel] = useState(null);
+
   // Products for dropdown
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
@@ -60,6 +86,56 @@ const PO = () => {
       return res.data || [];
     }
   });
+
+  const productsById = useMemo(() => {
+    const map = {};
+    products.forEach((p) => {
+      if (p?._id) {
+        map[String(p._id)] = p;
+      }
+    });
+    return map;
+  }, [products]);
+
+  const syncSelectedProductsWithPrimary = (nextPrimaryId, nextPrimaryName, nextPrimaryModel, nextPrimaryQty) => {
+    if (!nextPrimaryId) {
+      setSelectedProducts([]);
+      return;
+    }
+
+    setSelectedProducts((prev) => {
+      const rest = prev.filter((x) => String(x.productId) !== String(nextPrimaryId));
+      return [
+        {
+          productId: nextPrimaryId,
+          name: nextPrimaryName,
+          model: nextPrimaryModel,
+          quantity: Math.max(1, Number(nextPrimaryQty) || 1)
+        },
+        ...rest
+      ];
+    });
+  };
+
+  const addAdditionalProduct = (product) => {
+    if (!product?._id) return;
+    if (Number(product.stock || 0) <= 0) {
+      toast.error('Product is out of stock');
+      return;
+    }
+
+    setSelectedProducts((prev) => {
+      const existing = prev.find((x) => String(x.productId) === String(product._id));
+      if (existing) {
+        return prev.map((x) =>
+          String(x.productId) === String(product._id)
+            ? { ...x, quantity: Math.max(1, Number(x.quantity || 1) + 1) }
+            : x
+        );
+      }
+      return [...prev, { productId: product._id, name: product.name, model: product.model, quantity: 1 }];
+    });
+  };
 
   // Parcels list with server-side pagination & filters
   const { data: parcelsResponse } = useQuery({
@@ -123,18 +199,43 @@ const PO = () => {
       ? `${parcel.product.name} (${parcel.product.model})`
       : '';
 
-    const dateValue = parcel.parcelDate
-      ? new Date(parcel.parcelDate).toISOString().slice(0, 10)
-      : today;
+    const existingProductsInfo = Array.isArray(parcel.productsInfo) && parcel.productsInfo.length > 0
+      ? parcel.productsInfo
+      : (parcel.product?._id ? [{ productId: parcel.product._id, name: parcel.product.name, model: parcel.product.model, quantity: 1 }] : []);
+
+    const normalizedSelected = existingProductsInfo
+      .map((p) => ({
+        productId: p.productId,
+        name: p.name,
+        model: p.model,
+        quantity: Number(p.quantity || 1),
+      }))
+      .filter((p) => p.productId);
+
+    const primaryIdStr = parcel.product?._id ? String(parcel.product._id) : '';
+    const orderedSelected = primaryIdStr
+      ? (() => {
+        const primary = normalizedSelected.find((p) => String(p.productId) === primaryIdStr);
+        const rest = normalizedSelected.filter((p) => String(p.productId) !== primaryIdStr);
+        return primary ? [primary, ...rest] : normalizedSelected;
+      })()
+      : normalizedSelected;
+
+    const dateValue = parcel.parcelDate ? toLocalDateInputValue(parcel.parcelDate) : today;
 
     setEditModal({
       isOpen: true,
       parcelId: parcel._id,
-      productSearch: productLabel,
+      productSearch: '',
+      showProductSearch: false,
       selectedProductId: parcel.product?._id ? String(parcel.product._id) : '',
+      selectedProducts: orderedSelected,
+      primaryQuantity: orderedSelected[0]?.quantity || 1,
+      originalProducts: orderedSelected,
       form: {
         trackingNumber: parcel.trackingNumber || '',
         customerName: parcel.customerName || '',
+        phone: parcel.phone || '',
         address: parcel.address || '',
         codAmount: typeof parcel.codAmount === 'number' ? String(parcel.codAmount) : '',
         parcelDate: dateValue,
@@ -150,10 +251,15 @@ const PO = () => {
       isOpen: false,
       parcelId: null,
       productSearch: '',
+      showProductSearch: false,
       selectedProductId: '',
+      selectedProducts: [],
+      primaryQuantity: 1,
+      originalProducts: [],
       form: {
         trackingNumber: '',
         customerName: '',
+        phone: '',
         address: '',
         codAmount: '',
         parcelDate: today,
@@ -166,10 +272,45 @@ const PO = () => {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    if (!editModal.selectedProductId) {
-      toast.error('Please select a product');
+    const productsInfo = (Array.isArray(editModal.selectedProducts) ? editModal.selectedProducts : [])
+      .map((x) => ({
+        productId: x.productId,
+        quantity: Number(x.quantity || 1),
+      }))
+      .filter((x) => x.productId && Number(x.quantity || 0) > 0);
+
+    if (productsInfo.length === 0) {
+      toast.error('Please select at least one product');
       return;
     }
+
+    const prevMap = new Map(
+      (Array.isArray(editModal.originalProducts) ? editModal.originalProducts : [])
+        .map((p) => ({ id: p?.productId ? String(p.productId) : '', qty: Number(p?.quantity || 0) }))
+        .filter((x) => x.id)
+        .map((x) => [x.id, x.qty])
+    );
+
+    for (const item of productsInfo) {
+      const productDoc = productsById[String(item.productId)];
+      const available = Number(productDoc?.stock || 0);
+      const requested = Number(item.quantity || 0);
+      if (!productDoc) {
+        toast.error('Product not found');
+        return;
+      }
+      if (requested < 1 || !Number.isFinite(requested)) {
+        toast.error('Quantity must be at least 1');
+        return;
+      }
+      const prevQty = Number(prevMap.get(String(item.productId)) || 0);
+      const delta = requested - prevQty;
+      if (delta > 0 && available < delta) {
+        toast.error(`Insufficient stock for ${productDoc.name}. Available: ${available}, Requested: ${delta}`);
+        return;
+      }
+    }
+
     if (!editModal.form.customerName.trim()) {
       toast.error('Customer name is required');
       return;
@@ -181,8 +322,9 @@ const PO = () => {
 
     try {
       await updateParcel(editModal.parcelId, {
-        productId: editModal.selectedProductId,
+        productsInfo,
         customerName: editModal.form.customerName.trim(),
+        phone: editModal.form.phone ? editModal.form.phone.trim() : '',
         trackingNumber: editModal.form.trackingNumber.trim(),
         address: editModal.form.address.trim(),
         codAmount: Number(editModal.form.codAmount || 0),
@@ -224,10 +366,36 @@ const PO = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedProductId) {
-      toast.error('Please select a product');
+    const productsInfo = (Array.isArray(selectedProducts) ? selectedProducts : [])
+      .map((x) => ({
+        productId: x.productId,
+        quantity: Number(x.quantity || 1),
+      }))
+      .filter((x) => x.productId && Number(x.quantity || 0) > 0);
+
+    if (productsInfo.length === 0) {
+      toast.error('Please select at least one product');
       return;
     }
+
+    for (const item of productsInfo) {
+      const productDoc = productsById[String(item.productId)];
+      const available = Number(productDoc?.stock || 0);
+      const requested = Number(item.quantity || 0);
+      if (!productDoc) {
+        toast.error('Product not found');
+        return;
+      }
+      if (requested < 1 || !Number.isFinite(requested)) {
+        toast.error('Quantity must be at least 1');
+        return;
+      }
+      if (available < requested) {
+        toast.error(`Insufficient stock for ${productDoc.name}. Available: ${available}, Requested: ${requested}`);
+        return;
+      }
+    }
+
     if (!form.customerName.trim()) {
       toast.error('Customer name is required');
       return;
@@ -239,8 +407,9 @@ const PO = () => {
 
     try {
       await createParcel({
-        productId: selectedProductId,
+        productsInfo,
         customerName: form.customerName.trim(),
+        phone: form.phone ? form.phone.trim() : '',
         trackingNumber: form.trackingNumber.trim(),
         address: form.address.trim(),
         codAmount: Number(form.codAmount || 0),
@@ -250,9 +419,12 @@ const PO = () => {
         notes: form.notes.trim()
       });
       toast.success('Parcel recorded successfully');
-      setForm({ trackingNumber: '', customerName: '', address: '', codAmount: '', parcelDate: today, status: 'processing', paymentStatus: 'unpaid', notes: '' });
+      setForm({ trackingNumber: '', customerName: '', phone: '', address: '', codAmount: '', parcelDate: today, status: 'processing', paymentStatus: 'unpaid', notes: '' });
       setSelectedProductId('');
       setProductSearch('');
+      setShowProductSearch(false);
+      setSelectedProducts([]);
+      setPrimaryQuantity(1);
       await queryClient.invalidateQueries({ queryKey: ['parcels'] });
     } catch (error) {
       console.error('Error creating parcel:', error);
@@ -300,19 +472,35 @@ const PO = () => {
                   <input
                     type="text"
                     value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
+                    onChange={(e) => {
+                      setProductSearch(e.target.value);
+                      setShowProductSearch(true);
+                    }}
                     placeholder="Search by name, model, or category..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   />
-                  {productSearch && filteredProducts.length > 0 && (
+                  {showProductSearch && productSearch && filteredProducts.length > 0 && (
                     <div className="mt-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-lg text-sm">
                       {filteredProducts.map((p) => (
                         <button
                           type="button"
                           key={p._id}
                           onClick={() => {
-                            setSelectedProductId(p._id);
-                            setProductSearch(`${p.name} (${p.model})`);
+                            if (Number(p.stock || 0) <= 0) {
+                              toast.error('Product is out of stock');
+                              return;
+                            }
+
+                            if (!selectedProductId) {
+                              setSelectedProductId(p._id);
+                              setPrimaryQuantity(1);
+                              syncSelectedProductsWithPrimary(p._id, p.name, p.model, 1);
+                            } else {
+                              addAdditionalProduct(p);
+                            }
+
+                            setProductSearch('');
+                            setShowProductSearch(false);
                           }}
                           className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0"
                         >
@@ -323,6 +511,77 @@ const PO = () => {
                     </div>
                   )}
                 </div>
+
+                {selectedProducts.length > 0 && (
+                  <div className="md:col-span-2 space-y-2">
+                    {selectedProducts.map((p, idx) => (
+                      <div key={String(p.productId)} className="flex items-center gap-3 p-2 border border-gray-200 rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">{p.name}{p.model ? ` (${p.model})` : ''}</div>
+                          <div className="text-xs text-gray-500">Stock: {Number(productsById[String(p.productId)]?.stock ?? 0)}</div>
+                        </div>
+                        <div className="w-24">
+                          <input
+                            type="number"
+                            min="1"
+                            value={p.quantity}
+                            onChange={(e) => {
+                              const v = Math.max(1, Number(e.target.value || 1));
+                              const available = Number(productsById[String(p.productId)]?.stock || 0);
+                              if (available && v > available) {
+                                toast.error(`Insufficient stock. Available: ${available}`);
+                              }
+                              setSelectedProducts((prev) => prev.map((x) =>
+                                String(x.productId) === String(p.productId) ? { ...x, quantity: v } : x
+                              ));
+                              if (idx === 0) {
+                                setPrimaryQuantity(v);
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            if (idx === 0) {
+                              if (selectedProducts.length <= 1) {
+                                setSelectedProductId('');
+                                setProductSearch('');
+                                setSelectedProducts([]);
+                                setPrimaryQuantity(1);
+                                return;
+                              }
+
+                              const remaining = selectedProducts.filter((_, i) => i !== 0);
+                              const nextPrimary = remaining[0];
+                              const nextPrimaryId = String(nextPrimary.productId);
+                              const live = productsById[nextPrimaryId];
+                              const nextName = nextPrimary.name || live?.name || '';
+                              const nextModel = nextPrimary.model || live?.model;
+                              const nextQty = Math.max(1, Number(nextPrimary.quantity || 1));
+
+                              setSelectedProductId(nextPrimaryId);
+                              setPrimaryQuantity(nextQty);
+                              setProductSearch('');
+                              setSelectedProducts([
+                                { ...nextPrimary, productId: nextPrimaryId, name: nextName, model: nextModel, quantity: nextQty },
+                                ...remaining.slice(1),
+                              ]);
+                              return;
+                            }
+
+                            setSelectedProducts((prev) => prev.filter((x) => String(x.productId) !== String(p.productId)));
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* COD Amount */}
                 <div>
@@ -359,6 +618,17 @@ const PO = () => {
                     placeholder="Enter customer name for this parcel"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
+                  <input
+                    type="text"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    placeholder="03xxxxxxxxx"
                   />
                 </div>
 
@@ -513,13 +783,14 @@ const PO = () => {
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tracking #</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                   <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">COD</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase min-w-[320px] w-[420px]">Address</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                   <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Payment</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created By</th>
-                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase sticky right-0 bg-gray-50 z-20 border-l border-gray-200">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -537,14 +808,28 @@ const PO = () => {
                     >
                       <td className="px-4 py-2 font-medium text-gray-800 flex items-center gap-2">
                         <Hash size={14} className="text-gray-400" />
-                        {p.trackingNumber}
+                        VPP{p.trackingNumber}
                       </td>
                       <td className="px-4 py-2 text-gray-800">
                         {p.product ? (
-                          <div>
-                            <div className="font-semibold text-xs">{p.product.name}</div>
-                            <div className="text-[10px] text-gray-500">{p.product.model} 2 {p.product.category}</div>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (Array.isArray(p.productsInfo) && p.productsInfo.length > 1) {
+                                setProductsModalParcel(p);
+                                setIsProductsModalOpen(true);
+                              }
+                            }}
+                            className={`text-left w-full ${Array.isArray(p.productsInfo) && p.productsInfo.length > 1 ? 'cursor-pointer' : 'cursor-default'}`}
+                          >
+                            <div>
+                              <div className="font-semibold text-xs">{p.product.name}</div>
+                              <div className="text-[10px] text-gray-500">{p.product.model} • {p.product.category}</div>
+                              {Array.isArray(p.productsInfo) && p.productsInfo.length > 1 && (
+                                <div className="text-[10px] text-blue-600 underline">+{p.productsInfo.length - 1} more</div>
+                              )}
+                            </div>
+                          </button>
                         ) : (
                           '-'
                         )}
@@ -552,14 +837,14 @@ const PO = () => {
                       <td className="px-4 py-2 text-xs text-gray-800">
                         {p.customerName || '-'}
                       </td>
+                      <td className="px-4 py-2 text-xs text-gray-800">
+                        {p.phone || '-'}
+                      </td>
                       <td className="px-4 py-2 text-xs text-right text-gray-800">
                         {typeof p.codAmount === 'number' ? p.codAmount.toLocaleString('en-PK') : '-'}
                       </td>
                       <td className="px-4 py-2 text-xs text-gray-700">
-                        {(() => {
-                          const d = p.createdAt || p.parcelDate;
-                          return d ? new Date(d).toLocaleDateString('en-GB') : '';
-                        })()}
+                        {formatDateUTC(p.parcelDate || p.createdAt)}
                       </td>
                       <td className="px-4 py-2 text-xs text-gray-700 min-w-[250px] w-[300px] max-w-[400px] break-words">
                         <div className="flex items-start gap-1">
@@ -591,7 +876,7 @@ const PO = () => {
                       <td className="px-4 py-2 text-xs text-gray-700">
                         {p.createdBy ? p.createdBy.username || p.createdBy.email : '-'}
                       </td>
-                      <td className="px-4 py-2 text-center">
+                      <td className="px-4 py-2 text-center sticky right-0 bg-inherit z-10 border-l border-gray-200">
                         <div className="flex items-center justify-center gap-2">
                           <Button variant="secondary" size="sm" onClick={() => openEdit(p)}>
                             <Edit size={16} />
@@ -605,7 +890,7 @@ const PO = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="10" className="px-4 py-8 text-center text-gray-500 text-sm">
+                    <td colSpan="11" className="px-4 py-8 text-center text-gray-500 text-sm">
                       No parcels found. Try adjusting your filters.
                     </td>
                   </tr>
@@ -628,6 +913,39 @@ const PO = () => {
         </CardBody>
       </Card>
 
+      <Modal
+        isOpen={isProductsModalOpen}
+        onClose={() => {
+          setIsProductsModalOpen(false);
+          setProductsModalParcel(null);
+        }}
+        title={productsModalParcel ? `Products - ${productsModalParcel.customerName || ''}` : 'Products'}
+      >
+        <div className="space-y-3">
+          {productsModalParcel && Array.isArray(productsModalParcel.productsInfo) && productsModalParcel.productsInfo.length > 0 ? (
+            <div className="space-y-2">
+              {productsModalParcel.productsInfo.map((item, idx) => (
+                <div
+                  key={`${String(item.productId || idx)}-${idx}`}
+                  className="flex items-start justify-between gap-3 p-2 border border-gray-200 rounded-lg"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-900 truncate">
+                      {item.name || 'Product'}{item.model ? ` (${item.model})` : ''}
+                    </div>
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 whitespace-nowrap">
+                    Qty: {Number(item.quantity || 1)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-sm text-gray-600">No products found.</div>
+          )}
+        </div>
+      </Modal>
+
       <Modal isOpen={editModal.isOpen} onClose={closeEdit} title="Edit Parcel">
         <form onSubmit={handleEditSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -636,26 +954,56 @@ const PO = () => {
               <input
                 type="text"
                 value={editModal.productSearch}
-                onChange={(e) => setEditModal((prev) => ({ ...prev, productSearch: e.target.value }))}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, productSearch: e.target.value, showProductSearch: true }))}
                 placeholder="Search by name, model, or category..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               />
-              {editModal.productSearch && filteredEditProducts.length > 0 && (
+              {editModal.showProductSearch && editModal.productSearch && filteredEditProducts.length > 0 && (
                 <div className="mt-1 max-h-48 overflow-y-auto border border-gray-200 rounded-lg bg-white shadow-lg text-sm">
                   {filteredEditProducts.map((p) => (
                     <button
                       type="button"
                       key={p._id}
                       onClick={() => {
-                        if (Number(p.stock || 0) <= 0 && String(p._id) !== String(editModal.selectedProductId)) {
+                        if (Number(p.stock || 0) <= 0) {
                           toast.error('Product is out of stock');
                           return;
                         }
-                        setEditModal((prev) => ({
-                          ...prev,
-                          selectedProductId: p._id,
-                          productSearch: `${p.name} (${p.model})`
-                        }));
+
+                        setEditModal((prev) => {
+                          if (!prev.selectedProductId) {
+                            return {
+                              ...prev,
+                              selectedProductId: p._id,
+                              primaryQuantity: 1,
+                              selectedProducts: [{ productId: p._id, name: p.name, model: p.model, quantity: 1 }],
+                              productSearch: '',
+                              showProductSearch: false,
+                            };
+                          }
+
+                          const existing = (Array.isArray(prev.selectedProducts) ? prev.selectedProducts : [])
+                            .find((x) => String(x.productId) === String(p._id));
+                          if (existing) {
+                            return {
+                              ...prev,
+                              selectedProducts: prev.selectedProducts.map((x) =>
+                                String(x.productId) === String(p._id)
+                                  ? { ...x, quantity: Math.max(1, Number(x.quantity || 1) + 1) }
+                                  : x
+                              ),
+                              productSearch: '',
+                              showProductSearch: false,
+                            };
+                          }
+
+                          return {
+                            ...prev,
+                            selectedProducts: [...(prev.selectedProducts || []), { productId: p._id, name: p.name, model: p.model, quantity: 1 }],
+                            productSearch: '',
+                            showProductSearch: false,
+                          };
+                        });
                       }}
                       className={`w-full text-left px-3 py-2 border-b last:border-b-0 ${Number(p.stock || 0) <= 0 && String(p._id) !== String(editModal.selectedProductId) ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'hover:bg-gray-50'}`}
                     >
@@ -666,6 +1014,81 @@ const PO = () => {
                 </div>
               )}
             </div>
+
+            {Array.isArray(editModal.selectedProducts) && editModal.selectedProducts.length > 0 && (
+              <div className="md:col-span-2 space-y-2">
+                {editModal.selectedProducts.map((p, idx) => (
+                  <div key={String(p.productId)} className="flex items-center gap-3 p-2 border border-gray-200 rounded-lg">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 truncate">{p.name}{p.model ? ` (${p.model})` : ''}</div>
+                      <div className="text-xs text-gray-500">Stock: {Number(productsById[String(p.productId)]?.stock ?? 0)}</div>
+                    </div>
+                    <div className="w-24">
+                      <input
+                        type="number"
+                        min="1"
+                        value={p.quantity}
+                        onChange={(e) => {
+                          const v = Math.max(1, Number(e.target.value || 1));
+                          const available = Number(productsById[String(p.productId)]?.stock || 0);
+                          if (available && v > available) {
+                            toast.error(`Insufficient stock. Available: ${available}`);
+                          }
+                          setEditModal((prev) => ({
+                            ...prev,
+                            selectedProducts: (prev.selectedProducts || []).map((x) =>
+                              String(x.productId) === String(p.productId) ? { ...x, quantity: v } : x
+                            ),
+                            primaryQuantity: idx === 0 ? v : prev.primaryQuantity,
+                          }));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        setEditModal((prev) => {
+                          const current = Array.isArray(prev.selectedProducts) ? prev.selectedProducts : [];
+                          if (idx === 0) {
+                            if (current.length <= 1) {
+                              return { ...prev, selectedProductId: '', selectedProducts: [], primaryQuantity: 1 };
+                            }
+
+                            const remaining = current.filter((_, i) => i !== 0);
+                            const nextPrimary = remaining[0];
+                            const nextPrimaryId = String(nextPrimary.productId);
+                            const live = productsById[nextPrimaryId];
+                            const nextName = nextPrimary.name || live?.name || '';
+                            const nextModel = nextPrimary.model || live?.model;
+                            const nextQty = Math.max(1, Number(nextPrimary.quantity || 1));
+
+                            return {
+                              ...prev,
+                              selectedProductId: nextPrimaryId,
+                              primaryQuantity: nextQty,
+                              selectedProducts: [
+                                { ...nextPrimary, productId: nextPrimaryId, name: nextName, model: nextModel, quantity: nextQty },
+                                ...remaining.slice(1),
+                              ],
+                            };
+                          }
+
+                          return {
+                            ...prev,
+                            selectedProducts: current.filter((x) => String(x.productId) !== String(p.productId)),
+                          };
+                        });
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">COD Amount</label>
@@ -697,6 +1120,17 @@ const PO = () => {
                 onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, customerName: e.target.value } }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
+              <input
+                type="text"
+                value={editModal.form.phone}
+                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, phone: e.target.value } }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                placeholder="03xxxxxxxxx"
               />
             </div>
 
