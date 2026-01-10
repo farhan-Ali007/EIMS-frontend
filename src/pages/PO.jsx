@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getProducts, getParcels, createParcel, updateParcelStatus, updateParcel, deleteParcel } from '../services/api';
+import { getProducts, getParcels, createParcel, updateParcelStatus, updateParcel, deleteParcel, getBookPOs } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -27,6 +27,10 @@ const PO = () => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [primaryQuantity, setPrimaryQuantity] = useState(1);
   const today = toLocalDateInputValue(new Date());
+  const [bookPOSearch, setBookPOSearch] = useState('');
+  const [showBookPOSearch, setShowBookPOSearch] = useState(false);
+  const [isBookPOModalOpen, setIsBookPOModalOpen] = useState(false);
+  const [selectedBookPO, setSelectedBookPO] = useState(null);
   const [form, setForm] = useState({
     trackingNumber: '',
     customerName: '',
@@ -39,6 +43,7 @@ const PO = () => {
     notes: ''
   });
   const [filterTracking, setFilterTracking] = useState('');
+  const [filterSearch, setFilterSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPayment, setFilterPayment] = useState('');
   const [filterDate, setFilterDate] = useState('');
@@ -58,6 +63,8 @@ const PO = () => {
     parcelId: null,
     productSearch: '',
     showProductSearch: false,
+    bookPOSearch: '',
+    showBookPOSearch: false,
     selectedProductId: '',
     selectedProducts: [],
     primaryQuantity: 1,
@@ -86,6 +93,101 @@ const PO = () => {
       return res.data || [];
     }
   });
+
+  const { data: bookPOOrders = [] } = useQuery({
+    queryKey: ['book-po-orders', 'po-lookup'],
+    queryFn: async () => {
+      const res = await getBookPOs({ limit: 200 });
+      return res.data || [];
+    },
+  });
+
+  const normalizeSearchText = (input) => {
+    if (input == null) return '';
+
+    const s = String(input)
+      .normalize('NFKC')
+      .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+      .replace(/\u0640/g, '')
+      .replace(/[\u064A\u0649]/g, 'ی')
+      .replace(/\u0643/g, 'ک')
+      .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+      .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
+
+    return s.toLowerCase();
+  };
+
+  const filteredBookPOOrders = useMemo(() => {
+    const q = normalizeSearchText(bookPOSearch.trim());
+    if (!q) return [];
+
+    const flatten = (value) => {
+      if (value == null) return [];
+      if (value instanceof Date) return [value.toISOString()];
+      if (Array.isArray(value)) return value.flatMap(flatten);
+      if (typeof value === 'object') return Object.values(value).flatMap(flatten);
+      return [String(value)];
+    };
+
+    return (Array.isArray(bookPOOrders) ? bookPOOrders : [])
+      .filter((order) => {
+        const haystack = normalizeSearchText(flatten(order).join(' '));
+        return haystack.includes(q);
+      })
+      .slice(0, 8);
+  }, [bookPOOrders, bookPOSearch]);
+
+  const filteredEditBookPOOrders = useMemo(() => {
+    const q = normalizeSearchText(String(editModal.bookPOSearch || '').trim());
+    if (!q) return [];
+
+    const flatten = (value) => {
+      if (value == null) return [];
+      if (value instanceof Date) return [value.toISOString()];
+      if (Array.isArray(value)) return value.flatMap(flatten);
+      if (typeof value === 'object') return Object.values(value).flatMap(flatten);
+      return [String(value)];
+    };
+
+    return (Array.isArray(bookPOOrders) ? bookPOOrders : [])
+      .filter((order) => {
+        const haystack = normalizeSearchText(flatten(order).join(' '));
+        return haystack.includes(q);
+      })
+      .slice(0, 8);
+  }, [bookPOOrders, editModal.bookPOSearch]);
+
+  const copyToClipboard = async (text) => {
+    const value = String(text || '');
+    if (!value) return;
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      toast.success('Copied');
+    } catch (e) {
+      toast.error('Copy failed');
+    }
+  };
+
+  const findBookPOByExactName = (name) => {
+    const q = normalizeSearchText(String(name || '').trim());
+    if (!q) return null;
+    return (Array.isArray(bookPOOrders) ? bookPOOrders : []).find((o) =>
+      normalizeSearchText(o?.toName || '') === q
+    ) || null;
+  };
 
   const productsById = useMemo(() => {
     const map = {};
@@ -139,12 +241,13 @@ const PO = () => {
 
   // Parcels list with server-side pagination & filters
   const { data: parcelsResponse } = useQuery({
-    queryKey: ['parcels', { page: currentPage, search: filterTracking, status: filterStatus, paymentStatus: filterPayment, date: filterDate, month: filterMonth }],
+    queryKey: ['parcels', { page: currentPage, search: filterSearch, tracking: filterTracking, status: filterStatus, paymentStatus: filterPayment, date: filterDate, month: filterMonth }],
     queryFn: async () => {
       const res = await getParcels({
         page: currentPage,
         limit: itemsPerPage,
-        search: filterTracking || undefined,
+        search: filterSearch || undefined,
+        tracking: filterTracking || undefined,
         status: filterStatus || undefined,
         paymentStatus: filterPayment || undefined,
         date: filterDate || undefined,
@@ -157,6 +260,15 @@ const PO = () => {
   const parcels = parcelsResponse?.data || [];
   const totalParcels = parcelsResponse?.total || 0;
   const totalPages = parcelsResponse?.totalPages || 1;
+  const totalProductUnits = parcelsResponse?.totalProductUnits || 0;
+  const pageProductUnits = useMemo(() => {
+    return (Array.isArray(parcels) ? parcels : []).reduce((sum, p) => {
+      if (Array.isArray(p?.productsInfo) && p.productsInfo.length > 0) {
+        return sum + p.productsInfo.reduce((s, x) => s + Number(x?.quantity || 0), 0);
+      }
+      return sum + 1;
+    }, 0);
+  }, [parcels]);
 
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return products;
@@ -614,11 +726,67 @@ const PO = () => {
                   <input
                     type="text"
                     value={form.customerName}
-                    onChange={(e) => setForm({ ...form, customerName: e.target.value })}
+                    onChange={(e) => {
+                      const nextName = e.target.value;
+                      setForm((prev) => {
+                        const match = findBookPOByExactName(nextName);
+                        if (!match) {
+                          return { ...prev, customerName: nextName };
+                        }
+
+                        const next = { ...prev, customerName: nextName };
+                        if (!String(next.phone || '').trim()) {
+                          next.phone = match.toPhone || '';
+                        }
+                        if (!String(next.address || '').trim()) {
+                          next.address = match.toAddress || '';
+                        }
+                        if (prev.codAmount === '' || prev.codAmount == null) {
+                          next.codAmount = match.amount != null ? String(match.amount) : prev.codAmount;
+                        }
+                        return next;
+                      });
+                    }}
                     placeholder="Enter customer name for this parcel"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     required
                   />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Book PO Lookup (optional)</label>
+                  <div className="relative">
+                    <SearchBar
+                      value={bookPOSearch}
+                      onChange={(value) => {
+                        setBookPOSearch(value);
+                        setShowBookPOSearch(true);
+                      }}
+                      onFocus={() => setShowBookPOSearch(true)}
+                      placeholder="Search saved Book PO by name / phone / address..."
+                      className="w-full"
+                    />
+
+                    {showBookPOSearch && filteredBookPOOrders.length > 0 && (
+                      <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
+                        {filteredBookPOOrders.map((order) => (
+                          <button
+                            key={order._id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedBookPO(order);
+                              setIsBookPOModalOpen(true);
+                              setShowBookPOSearch(false);
+                            }}
+                            className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b last:border-b-0 border-gray-100"
+                          >
+                            <div className="font-medium text-gray-900">{order.toName}</div>
+                            <div className="text-xs text-gray-600">{order.toPhone} • {order.toAddress}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div>
@@ -714,21 +882,32 @@ const PO = () => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Parcel Records</span>
-            <span className="text-sm text-gray-500">{totalParcels} record(s)</span>
+            <span className="text-sm text-gray-500">{totalParcels} record(s) • {totalProductUnits} product(s)</span>
           </CardTitle>
         </CardHeader>
         <CardBody className="p-0">
           <div className="p-4 flex flex-col md:flex-row gap-3 border-b border-gray-100">
             <div className="flex-1">
               <SearchBar
-                value={filterTracking}
+                value={filterSearch}
                 onChange={(v) => {
-                  setFilterTracking(v);
+                  setFilterSearch(v);
                   setCurrentPage(1);
                 }}
                 placeholder="Search parcels (English/Urdu) ..."
               />
             </div>
+            <input
+              type="text"
+              value={filterTracking}
+              onChange={(e) => {
+                setFilterTracking(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              placeholder="Tracking #"
+              title="Filter by tracking number"
+            />
             <input
               type="date"
               value={filterDate}
@@ -757,7 +936,10 @@ const PO = () => {
             />
             <select
               value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
             >
               <option value="">All Status</option>
@@ -767,13 +949,20 @@ const PO = () => {
             </select>
             <select
               value={filterPayment}
-              onChange={(e) => setFilterPayment(e.target.value)}
+              onChange={(e) => {
+                setFilterPayment(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
             >
               <option value="">All Payments</option>
               <option value="paid">Paid</option>
               <option value="unpaid">Unpaid</option>
             </select>
+          </div>
+
+          <div className="px-4 py-2 text-xs text-gray-600 border-b border-gray-100">
+            Showing this page: {pageProductUnits} product(s)
           </div>
 
           <div className="overflow-x-auto">
@@ -808,7 +997,7 @@ const PO = () => {
                     >
                       <td className="px-4 py-2 font-medium text-gray-800 flex items-center gap-2">
                         <Hash size={14} className="text-gray-400" />
-                        VPP{p.trackingNumber}
+                        {p.trackingNumber}
                       </td>
                       <td className="px-4 py-2 text-gray-800">
                         {p.product ? (
@@ -944,6 +1133,110 @@ const PO = () => {
             <div className="text-sm text-gray-600">No products found.</div>
           )}
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={isBookPOModalOpen}
+        onClose={() => {
+          setIsBookPOModalOpen(false);
+          setSelectedBookPO(null);
+        }}
+        title={selectedBookPO ? `Book PO - ${selectedBookPO.toName || ''}` : 'Book PO'}
+      >
+        {selectedBookPO ? (
+          <div className="space-y-3">
+            <div className="p-2 border border-gray-200 rounded-lg">
+              <div className="text-xs text-gray-500">Name</div>
+              <div className="text-sm font-medium text-gray-900 break-words">{selectedBookPO.toName || '-'}</div>
+              <div className="mt-2 flex gap-2">
+                <Button type="button" variant="secondary" size="sm" onClick={() => copyToClipboard(selectedBookPO.toName)}>
+                  Copy Name
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setForm((prev) => ({ ...prev, customerName: selectedBookPO.toName || prev.customerName }));
+                    toast.success('Name filled');
+                  }}
+                >
+                  Use Name
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-2 border border-gray-200 rounded-lg">
+              <div className="text-xs text-gray-500">Phone</div>
+              <div className="text-sm font-medium text-gray-900 break-words">{selectedBookPO.toPhone || '-'}</div>
+              <div className="mt-2 flex gap-2">
+                <Button type="button" variant="secondary" size="sm" onClick={() => copyToClipboard(selectedBookPO.toPhone)}>
+                  Copy Phone
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setForm((prev) => ({ ...prev, phone: selectedBookPO.toPhone || prev.phone }));
+                    toast.success('Phone filled');
+                  }}
+                >
+                  Use Phone
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-2 border border-gray-200 rounded-lg">
+              <div className="text-xs text-gray-500">Address</div>
+              <div className="text-sm font-medium text-gray-900 break-words">{selectedBookPO.toAddress || '-'}</div>
+              <div className="mt-2 flex gap-2">
+                <Button type="button" variant="secondary" size="sm" onClick={() => copyToClipboard(selectedBookPO.toAddress)}>
+                  Copy Address
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setForm((prev) => ({ ...prev, address: selectedBookPO.toAddress || prev.address }));
+                    toast.success('Address filled');
+                  }}
+                >
+                  Use Address
+                </Button>
+              </div>
+            </div>
+
+            <div className="p-2 border border-gray-200 rounded-lg">
+              <div className="text-xs text-gray-500">COD</div>
+              <div className="text-sm font-medium text-gray-900 break-words">{selectedBookPO.amount != null ? String(selectedBookPO.amount) : '-'}</div>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => copyToClipboard(selectedBookPO.amount != null ? String(selectedBookPO.amount) : '')}
+                >
+                  Copy COD
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setForm((prev) => ({ ...prev, codAmount: selectedBookPO.amount != null ? String(selectedBookPO.amount) : prev.codAmount }));
+                    toast.success('COD filled');
+                  }}
+                >
+                  Use COD
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-gray-600">No record selected.</div>
+        )}
       </Modal>
 
       <Modal isOpen={editModal.isOpen} onClose={closeEdit} title="Edit Parcel">
@@ -1117,10 +1410,73 @@ const PO = () => {
               <input
                 type="text"
                 value={editModal.form.customerName}
-                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, customerName: e.target.value } }))}
+                onChange={(e) => {
+                  const nextName = e.target.value;
+                  setEditModal((prev) => {
+                    const match = findBookPOByExactName(nextName);
+                    if (!match) {
+                      return { ...prev, form: { ...prev.form, customerName: nextName } };
+                    }
+
+                    const nextForm = { ...prev.form, customerName: nextName };
+                    if (!String(nextForm.phone || '').trim()) {
+                      nextForm.phone = match.toPhone || '';
+                    }
+                    if (!String(nextForm.address || '').trim()) {
+                      nextForm.address = match.toAddress || '';
+                    }
+                    if (nextForm.codAmount === '' || nextForm.codAmount == null) {
+                      nextForm.codAmount = match.amount != null ? String(match.amount) : nextForm.codAmount;
+                    }
+                    return { ...prev, form: nextForm };
+                  });
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 required
               />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Book PO Lookup (optional)</label>
+              <div className="relative">
+                <SearchBar
+                  value={editModal.bookPOSearch}
+                  onChange={(value) => setEditModal((prev) => ({ ...prev, bookPOSearch: value, showBookPOSearch: true }))}
+                  onFocus={() => setEditModal((prev) => ({ ...prev, showBookPOSearch: true }))}
+                  placeholder="Search saved Book PO by name / phone / address..."
+                  className="w-full"
+                />
+
+                {editModal.showBookPOSearch && filteredEditBookPOOrders.length > 0 && (
+                  <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg text-sm">
+                    {filteredEditBookPOOrders.map((order) => (
+                      <button
+                        key={order._id}
+                        type="button"
+                        onClick={() => {
+                          setEditModal((prev) => ({
+                            ...prev,
+                            showBookPOSearch: false,
+                            bookPOSearch: '',
+                            form: {
+                              ...prev.form,
+                              customerName: order.toName || prev.form.customerName,
+                              address: order.toAddress || prev.form.address,
+                              phone: order.toPhone || prev.form.phone,
+                              codAmount: order.amount != null ? String(order.amount) : prev.form.codAmount,
+                            },
+                          }));
+                          toast.success('Filled from Book PO');
+                        }}
+                        className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b last:border-b-0 border-gray-100"
+                      >
+                        <div className="font-medium text-gray-900">{order.toName}</div>
+                        <div className="text-xs text-gray-600">{order.toPhone} • {order.toAddress}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>

@@ -19,7 +19,7 @@ const Dashboard = () => {
         getDashboardStats(),
         getChartData()
       ]);
-      
+
       setStats(statsRes.data);
       setChartData(chartRes.data);
     } catch (error) {
@@ -38,59 +38,59 @@ const Dashboard = () => {
   }
 
   const statCards = [
-    { 
-      title: 'Total Products', 
-      value: stats?.totalProducts || 0, 
-      icon: Package, 
+    {
+      title: 'Total Products',
+      value: stats?.totalProducts || 0,
+      icon: Package,
       color: 'bg-blue-500',
       change: '+12%'
     },
-    { 
-      title: 'Total Sellers', 
-      value: stats?.totalSellers || 0, 
-      icon: Users, 
+    {
+      title: 'Total Sellers',
+      value: stats?.totalSellers || 0,
+      icon: Users,
       color: 'bg-indigo-500',
       change: '+5%'
     },
-    { 
-      title: 'Online Customers', 
-      value: stats?.onlineCustomers || 0, 
-      icon: Globe, 
+    {
+      title: 'Online Customers',
+      value: stats?.onlineCustomers || 0,
+      icon: Globe,
       color: 'bg-sky-500',
       change: '+22%'
     },
-    { 
-      title: 'Offline Customers', 
-      value: stats?.offlineCustomers || 0, 
-      icon: MapPin, 
+    {
+      title: 'Offline Customers',
+      value: stats?.offlineCustomers || 0,
+      icon: MapPin,
       color: 'bg-cyan-500',
       change: '+15%'
     },
-    { 
-      title: 'Total Sales', 
-      value: stats?.totalSales || 0, 
-      icon: ShoppingCart, 
+    {
+      title: 'Total Sales',
+      value: stats?.totalSales || 0,
+      icon: ShoppingCart,
       color: 'bg-indigo-500',
       change: '+23%'
     },
-    { 
-      title: 'Total Revenue', 
-      value: `Rs. ${stats?.totalRevenue?.toLocaleString('en-PK', {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '0.00'}`, 
-      icon: DollarSign, 
+    {
+      title: 'Total Revenue',
+      value: `Rs. ${stats?.totalRevenue?.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+      icon: DollarSign,
       color: 'bg-blue-700',
       change: '+15%'
     },
-    { 
-      title: 'Total Commission', 
-      value: `Rs. ${stats?.totalCommission?.toLocaleString('en-PK', {minimumFractionDigits: 2, maximumFractionDigits: 2}) || '0.00'}`, 
-      icon: TrendingUp, 
+    {
+      title: 'Total Commission',
+      value: `Rs. ${stats?.totalCommission?.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`,
+      icon: TrendingUp,
       color: 'bg-indigo-600',
       change: '+8%'
     },
-    { 
-      title: 'Low Stock Alerts', 
-      value: stats?.lowStockProducts || 0, 
-      icon: AlertTriangle, 
+    {
+      title: 'Low Stock Alerts',
+      value: stats?.lowStockProducts || 0,
+      icon: AlertTriangle,
       color: 'bg-rose-500',
       change: 'Action needed'
     },
@@ -130,15 +130,14 @@ const Dashboard = () => {
             <CardBody className="relative">
               {/* Decorative gradient background */}
               <div className={`absolute top-0 right-0 w-32 h-32 ${stat.color} opacity-10 rounded-full -mr-16 -mt-16`}></div>
-              
+
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex-1">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">{stat.title}</p>
-                  <p className={`font-bold text-gray-900 mt-1 ${
-                    typeof stat.value === 'string' && stat.value.includes('Rs.') 
-                      ? 'text-xl' 
+                  <p className={`font-bold text-gray-900 mt-1 ${typeof stat.value === 'string' && stat.value.includes('Rs.')
+                      ? 'text-xl'
                       : 'text-3xl'
-                  }`}>
+                    }`}>
                     {typeof stat.value === 'number' ? stat.value.toLocaleString('en-PK') : stat.value}
                   </p>
                 </div>
@@ -167,65 +166,65 @@ const Dashboard = () => {
               <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorOrders" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                <XAxis 
-                  dataKey="date" 
+                <XAxis
+                  dataKey="date"
                   tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}
                   axisLine={{ stroke: '#e5e7eb' }}
                   tickLine={{ stroke: '#e5e7eb' }}
                 />
-                <YAxis 
+                <YAxis
                   tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}
                   axisLine={{ stroke: '#e5e7eb' }}
                   tickLine={{ stroke: '#e5e7eb' }}
                   domain={[0, 'dataMax + 1000']}
                 />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#fff', 
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
                     border: 'none',
                     borderRadius: '12px',
                     boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
                     padding: '12px'
                   }}
                   formatter={(value, name) => [
-                    name === 'Revenue (PKR)' 
-                      ? `Rs. ${value.toLocaleString('en-PK')}` 
+                    name === 'Revenue (PKR)'
+                      ? `Rs. ${value.toLocaleString('en-PK')}`
                       : value,
                     name
                   ]}
                 />
-                <Legend 
+                <Legend
                   wrapperStyle={{ paddingTop: '20px' }}
                   iconType="circle"
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="totalSales" 
-                  stroke="#3b82f6" 
+                <Area
+                  type="monotone"
+                  dataKey="totalSales"
+                  stroke="#3b82f6"
                   strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorRevenue)" 
+                  fillOpacity={1}
+                  fill="url(#colorRevenue)"
                   name="Revenue (PKR)"
                   dot={{ fill: '#3b82f6', r: 5, strokeWidth: 2, stroke: '#fff' }}
                   activeDot={{ r: 7, strokeWidth: 2, stroke: '#fff' }}
                   connectNulls={false}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="count" 
-                  stroke="#6366f1" 
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  stroke="#6366f1"
                   strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorOrders)" 
+                  fillOpacity={1}
+                  fill="url(#colorOrders)"
                   name="Orders"
                   dot={{ fill: '#6366f1', r: 5, strokeWidth: 2, stroke: '#fff' }}
                   activeDot={{ r: 7, strokeWidth: 2, stroke: '#fff' }}
@@ -261,22 +260,22 @@ const Dashboard = () => {
               <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={stats.topProducts} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                  <XAxis 
-                    dataKey="_id" 
+                  <XAxis
+                    dataKey="_id"
                     tick={{ fill: '#6b7280', fontSize: 10, fontWeight: 500 }}
                     angle={-35}
                     textAnchor="end"
                     height={80}
                     interval={0}
                   />
-                  <YAxis 
+                  <YAxis
                     tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 500 }}
                     axisLine={{ stroke: '#e5e7eb' }}
                     tickLine={{ stroke: '#e5e7eb' }}
                   />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#fff', 
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
                       border: 'none',
                       borderRadius: '12px',
                       boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
@@ -284,8 +283,8 @@ const Dashboard = () => {
                     }}
                     cursor={{ fill: 'rgba(16, 185, 129, 0.1)' }}
                   />
-                  <Bar 
-                    dataKey="count" 
+                  <Bar
+                    dataKey="count"
                     radius={[12, 12, 0, 0]}
                     name="Units Sold"
                   >
@@ -338,10 +337,10 @@ const Dashboard = () => {
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip 
-                    formatter={(value) => `Rs. ${value.toLocaleString('en-PK', {minimumFractionDigits: 2})}`}
-                    contentStyle={{ 
-                      backgroundColor: '#fff', 
+                  <Tooltip
+                    formatter={(value) => `Rs. ${value.toLocaleString('en-PK', { minimumFractionDigits: 2 })}`}
+                    contentStyle={{
+                      backgroundColor: '#fff',
                       border: 'none',
                       borderRadius: '12px',
                       boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
@@ -396,7 +395,7 @@ const Dashboard = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-sm font-semibold text-emerald-600">
-                            Rs. {sale.total.toLocaleString('en-PK', {minimumFractionDigits: 2})}
+                            Rs. {sale.total.toLocaleString('en-PK', { minimumFractionDigits: 2 })}
                           </div>
                         </td>
                       </tr>
@@ -450,13 +449,12 @@ const Dashboard = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              product.stock === 0 
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${product.stock === 0
                                 ? 'bg-rose-100 text-rose-800'
                                 : product.stock < product.lowStockAlert / 2
-                                ? 'bg-orange-100 text-orange-800'
-                                : 'bg-amber-100 text-amber-800'
-                            }`}>
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}>
                               {product.stock === 0 ? 'Out of Stock' : `${product.stock} units`}
                             </span>
                           </div>
