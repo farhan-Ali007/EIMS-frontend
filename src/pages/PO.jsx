@@ -265,7 +265,7 @@ const PO = () => {
   };
 
   // Parcels list with server-side pagination & filters
-  const { data: parcelsResponse } = useQuery({
+  const { data: parcelsResponse, isLoading: isParcelsLoading, isFetching: isParcelsFetching } = useQuery({
     queryKey: ['parcels', { page: currentPage, limit: itemsPerPage, search: filterSearch, tracking: filterTracking, status: filterStatus, paymentStatus: filterPayment, date: filterDate, month: filterMonth }],
     queryFn: async () => {
       const res = await getParcels({
@@ -279,7 +279,8 @@ const PO = () => {
         month: filterMonth || undefined,
       });
       return res.data;
-    }
+    },
+    keepPreviousData: true,
   });
 
   const parcels = parcelsResponse?.data || [];
@@ -1051,7 +1052,13 @@ const PO = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {paginatedParcels.length > 0 ? (
+                {isParcelsLoading || (isParcelsFetching && paginatedParcels.length === 0) ? (
+                  <tr>
+                    <td colSpan="11" className="px-4 py-8 text-center text-gray-500 text-sm">
+                      Loading...
+                    </td>
+                  </tr>
+                ) : paginatedParcels.length > 0 ? (
                   paginatedParcels.map((p) => (
                     <tr
                       key={p._id}
