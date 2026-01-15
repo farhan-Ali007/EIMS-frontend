@@ -49,7 +49,7 @@ const PO = () => {
   const [filterDate, setFilterDate] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [itemsPerPage, setItemsPerPage] = useState(50);
 
   const formatDateUTC = (value) => {
     if (!value) return '';
@@ -189,6 +189,31 @@ const PO = () => {
     ) || null;
   };
 
+  const normalizePhone = (phone) => {
+    const raw = normalizeSearchText(String(phone || '').trim());
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) return '';
+
+    let d = digits;
+    if (d.startsWith('0092')) {
+      d = `0${d.slice(4)}`;
+    } else if (d.startsWith('92')) {
+      d = `0${d.slice(2)}`;
+    } else if (d.length === 10 && d.startsWith('3')) {
+      d = `0${d}`;
+    }
+
+    return d;
+  };
+
+  const findBookPOByExactPhone = (phone) => {
+    const q = normalizePhone(phone);
+    if (!q) return null;
+    return (Array.isArray(bookPOOrders) ? bookPOOrders : []).find((o) =>
+      normalizePhone(o?.toPhone || '') === q
+    ) || null;
+  };
+
   const productsById = useMemo(() => {
     const map = {};
     products.forEach((p) => {
@@ -241,7 +266,7 @@ const PO = () => {
 
   // Parcels list with server-side pagination & filters
   const { data: parcelsResponse } = useQuery({
-    queryKey: ['parcels', { page: currentPage, search: filterSearch, tracking: filterTracking, status: filterStatus, paymentStatus: filterPayment, date: filterDate, month: filterMonth }],
+    queryKey: ['parcels', { page: currentPage, limit: itemsPerPage, search: filterSearch, tracking: filterTracking, status: filterStatus, paymentStatus: filterPayment, date: filterDate, month: filterMonth }],
     queryFn: async () => {
       const res = await getParcels({
         page: currentPage,
@@ -794,7 +819,27 @@ const PO = () => {
                   <input
                     type="text"
                     value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    onChange={(e) => {
+                      const nextPhone = e.target.value;
+                      setForm((prev) => {
+                        const match = findBookPOByExactPhone(nextPhone);
+                        if (!match) {
+                          return { ...prev, phone: nextPhone };
+                        }
+
+                        const next = { ...prev, phone: nextPhone };
+                        if (!String(next.customerName || '').trim()) {
+                          next.customerName = match.toName || next.customerName;
+                        }
+                        if (!String(next.address || '').trim()) {
+                          next.address = match.toAddress || next.address;
+                        }
+                        if (prev.codAmount === '' || prev.codAmount == null) {
+                          next.codAmount = match.amount != null ? String(match.amount) : prev.codAmount;
+                        }
+                        return next;
+                      });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                     placeholder="03xxxxxxxxx"
                   />
@@ -886,8 +931,9 @@ const PO = () => {
           </CardTitle>
         </CardHeader>
         <CardBody className="p-0">
-          <div className="p-4 flex flex-col md:flex-row gap-3 border-b border-gray-100">
-            <div className="flex-1">
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 lg:grid-rows-2 gap-3 border-b border-gray-100">
+            {/* Row 1: Search (wide) + Date + Status */}
+            <div className="lg:col-span-2 lg:row-start-1">
               <SearchBar
                 value={filterSearch}
                 onChange={(v) => {
@@ -897,17 +943,7 @@ const PO = () => {
                 placeholder="Search parcels (English/Urdu) ..."
               />
             </div>
-            <input
-              type="text"
-              value={filterTracking}
-              onChange={(e) => {
-                setFilterTracking(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              placeholder="Tracking #"
-              title="Filter by tracking number"
-            />
+
             <input
               type="date"
               value={filterDate}
@@ -918,9 +954,37 @@ const PO = () => {
                 }
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm lg:row-start-1"
               title="Filter by exact date"
             />
+
+            <select
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm lg:row-start-1"
+            >
+              <option value="">All Status</option>
+              <option value="processing">Processing</option>
+              <option value="delivered">Delivered</option>
+              <option value="return">Return</option>
+            </select>
+
+            {/* Row 2: Tracking + Month + Payment + Rows per page */}
+            <input
+              type="text"
+              value={filterTracking}
+              onChange={(e) => {
+                setFilterTracking(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm lg:row-start-2"
+              placeholder="Tracking #"
+              title="Filter by tracking number"
+            />
+
             <input
               type="month"
               value={filterMonth}
@@ -931,33 +995,37 @@ const PO = () => {
                 }
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm lg:row-start-2"
               title="Filter by month"
             />
-            <select
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="">All Status</option>
-              <option value="processing">Processing</option>
-              <option value="delivered">Delivered</option>
-              <option value="return">Return</option>
-            </select>
+
             <select
               value={filterPayment}
               onChange={(e) => {
                 setFilterPayment(e.target.value);
                 setCurrentPage(1);
               }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm lg:row-start-2"
             >
               <option value="">All Payments</option>
               <option value="paid">Paid</option>
               <option value="unpaid">Unpaid</option>
+            </select>
+
+            <select
+              value={String(itemsPerPage)}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setItemsPerPage(Number.isFinite(next) && next > 0 ? next : 50);
+                setCurrentPage(1);
+              }}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm lg:row-start-2"
+              title="Rows per page"
+            >
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+              <option value="250">250</option>
             </select>
           </div>
 
@@ -1095,7 +1163,7 @@ const PO = () => {
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
                 itemsPerPage={itemsPerPage}
-                totalItems={filteredParcels.length}
+                totalItems={totalParcels}
               />
             </div>
           )}
@@ -1484,7 +1552,27 @@ const PO = () => {
               <input
                 type="text"
                 value={editModal.form.phone}
-                onChange={(e) => setEditModal((prev) => ({ ...prev, form: { ...prev.form, phone: e.target.value } }))}
+                onChange={(e) => {
+                  const nextPhone = e.target.value;
+                  setEditModal((prev) => {
+                    const match = findBookPOByExactPhone(nextPhone);
+                    if (!match) {
+                      return { ...prev, form: { ...prev.form, phone: nextPhone } };
+                    }
+
+                    const nextForm = { ...prev.form, phone: nextPhone };
+                    if (!String(nextForm.customerName || '').trim()) {
+                      nextForm.customerName = match.toName || nextForm.customerName;
+                    }
+                    if (!String(nextForm.address || '').trim()) {
+                      nextForm.address = match.toAddress || nextForm.address;
+                    }
+                    if (nextForm.codAmount === '' || nextForm.codAmount == null) {
+                      nextForm.codAmount = match.amount != null ? String(match.amount) : nextForm.codAmount;
+                    }
+                    return { ...prev, form: nextForm };
+                  });
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 placeholder="03xxxxxxxxx"
               />
