@@ -27,7 +27,7 @@ const BookPO = () => {
   const { data: orders = [] } = useQuery({
     queryKey: ['book-po-orders'],
     queryFn: async () => {
-      const res = await getBookPOs();
+      const res = await getBookPOs({ limit: 2000 });
       return res.data || [];
     },
   });
@@ -126,6 +126,8 @@ const BookPO = () => {
 
       const s = String(input)
         .normalize('NFKC')
+        // Remove invisible direction/formatting marks that often break Urdu matching
+        .replace(/[\u200C\u200D\u200E\u200F\u061C\u202A-\u202E\u2066-\u2069]/g, '')
         // Remove Arabic diacritics
         .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
         // Remove tatweel
@@ -136,7 +138,9 @@ const BookPO = () => {
         // Normalize Arabic-Indic digits ٠١٢٣٤٥٦٧٨٩
         .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
         // Normalize Eastern Arabic-Indic digits ۰۱۲۳۴۵۶۷۸۹
-        .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
+        .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0))
+        .replace(/\s+/g, ' ')
+        .trim();
 
       return s.toLowerCase();
     };

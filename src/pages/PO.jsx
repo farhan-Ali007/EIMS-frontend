@@ -7,7 +7,7 @@ import Modal from '../components/Modal';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
-import { Package, Truck, MapPin, Hash, CheckCircle, Edit, Trash2 } from 'lucide-react';
+import { Package, Truck, MapPin, Hash, CheckCircle, Edit, Trash2, Printer } from 'lucide-react';
 
 const PO = () => {
   const toast = useToast();
@@ -50,6 +50,8 @@ const PO = () => {
   const [filterMonth, setFilterMonth] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
+  const [loadsheetDay, setLoadsheetDay] = useState('');
+  const [isPrintingLoadsheet, setIsPrintingLoadsheet] = useState(false);
 
   const formatDateUTC = (value) => {
     if (!value) return '';
@@ -115,6 +117,233 @@ const PO = () => {
       .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0));
 
     return s.toLowerCase();
+  };
+
+  const escapeHtml = (value) => {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
+  const handlePrintLoadsheet = async () => {
+    const buildDateFromMonthDay = (month, day) => {
+      if (!month || !day) return '';
+      const [yRaw, mRaw] = String(month).split('-');
+      const y = Number(yRaw);
+      const m = Number(mRaw);
+      const d = Number(day);
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d) || y <= 0 || m <= 0 || m > 12) return '';
+      const lastDay = new Date(y, m, 0).getDate();
+      if (d < 1 || d > lastDay) return null;
+      return `${String(month)}-${String(d).padStart(2, '0')}`;
+    };
+
+    let selectedDate = filterDate || '';
+    if (!selectedDate && loadsheetDay) {
+      const monthBase = filterMonth || String(today).slice(0, 7);
+      const built = buildDateFromMonthDay(monthBase, loadsheetDay);
+      if (built === null) {
+        toast.error('Invalid day for selected month');
+        return;
+      }
+      selectedDate = built || '';
+    }
+
+    const headerDateLabel = selectedDate
+      ? selectedDate
+      : (filterMonth ? filterMonth : 'All');
+
+    let iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    const w = iframe.contentWindow;
+    if (!w || !w.document) {
+      toast.error('Unable to open print window');
+      try {
+        iframe.remove();
+      } catch (e) {
+        // ignore
+      }
+      return;
+    }
+
+    const cleanupIframe = () => {
+      if (!iframe) return;
+      try {
+        iframe.remove();
+      } catch (e) {
+        // ignore
+      }
+      iframe = null;
+    };
+
+    w.document.open();
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8" /><title>Loading...</title></head><body style="font-family: Arial, sans-serif; padding: 24px;">Loading loadsheet...</body></html>`);
+    w.document.close();
+
+    try {
+      setIsPrintingLoadsheet(true);
+
+      const res = await getParcels({
+        page: 1,
+        limit: 5000,
+        date: selectedDate || undefined,
+        month: filterMonth || undefined,
+        search: filterSearch || undefined,
+        tracking: filterTracking || undefined,
+        status: filterStatus || undefined,
+        paymentStatus: filterPayment || undefined,
+      });
+
+      const rows = Array.isArray(res?.data?.data) ? res.data.data : [];
+      const piecesTotal = rows.reduce((sum, p) => {
+        if (Array.isArray(p?.productsInfo) && p.productsInfo.length > 0) {
+          return sum + p.productsInfo.reduce((s, x) => s + Number(x?.quantity || 0), 0);
+        }
+        return sum + 1;
+      }, 0);
+
+      const codTotal = rows.reduce((sum, p) => sum + Number(p?.codAmount || 0), 0);
+
+      const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Daily Loadsheet - ${escapeHtml(headerDateLabel)}</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    body { font-family: Arial, sans-serif; color: #111; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .title { font-size: 16px; font-weight: 700; }
+    .sub { font-size: 12px; color: #333; margin-top: 2px; }
+    .meta { font-size: 12px; line-height: 1.4; text-align: right; }
+    table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    th, td { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+    th { background: #f5f5f5; font-weight: 700; }
+    .right { text-align: right; }
+    .center { text-align: center; }
+    .nowrap { white-space: nowrap; }
+    .summary td { font-size: 12px; font-weight: 700; }
+    .summary-line { display: flex; justify-content: space-between; gap: 10px; }
+    .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="title">Courier Copy</div>
+      <div class="sub">Daily Loadsheet</div>
+      <div class="sub muted">Company: Etimad Mart</div>
+    </div>
+    <div class="meta">
+      <div><b>Date:</b> ${escapeHtml(headerDateLabel)}</div>
+      <div><b>Printed:</b> ${escapeHtml(new Date().toLocaleString())}</div>
+      <div><b>Total Records:</b> ${rows.length}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="center nowrap">Sr</th>
+        <th class="nowrap">Tracking #</th>
+        <th>Customer</th>
+        <th class="nowrap">Phone</th>
+        <th>Product</th>
+        <th class="nowrap">Date</th>
+        <th class="center nowrap">Pieces</th>
+        <th class="right nowrap">COD</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map((p, idx) => {
+        const pieces = Array.isArray(p?.productsInfo) && p.productsInfo.length > 0
+          ? p.productsInfo.reduce((s, x) => s + Number(x?.quantity || 0), 0)
+          : 1;
+
+        const cod = Number(p?.codAmount || 0);
+
+        const productText = Array.isArray(p?.productsInfo) && p.productsInfo.length > 0
+          ? p.productsInfo
+            .map((x) => {
+              const name = x?.name || x?.productName || '';
+              const qty = Number(x?.quantity || 0);
+              return qty > 0 ? `${name} (${qty})` : String(name);
+            })
+            .filter(Boolean)
+            .join(', ')
+          : (p?.productName || p?.product?.name || p?.productId?.name || '');
+
+        const rowDateRaw = p?.parcelDate || p?.createdAt;
+        const rowDateObj = rowDateRaw ? new Date(rowDateRaw) : null;
+        const rowDateText = rowDateObj && !Number.isNaN(rowDateObj.getTime())
+          ? rowDateObj.toLocaleDateString('en-GB')
+          : '';
+
+        return `
+          <tr>
+            <td class="center nowrap">${idx + 1}</td>
+            <td class="nowrap">${escapeHtml(p?.trackingNumber || '')}</td>
+            <td>${escapeHtml(p?.customerName || '')}</td>
+            <td class="nowrap">${escapeHtml(p?.phone || '')}</td>
+            <td>${escapeHtml(productText || '')}</td>
+            <td class="nowrap">${escapeHtml(rowDateText)}</td>
+            <td class="center nowrap">${pieces}</td>
+            <td class="right nowrap">${cod.toLocaleString('en-PK')}</td>
+          </tr>
+        `;
+      }).join('')}
+    </tbody>
+    <tfoot class="summary">
+      <tr>
+        <td colspan="8"><div class="summary-line"><span>Total No. Of Pieces</span><span>${piecesTotal}</span></div></td>
+      </tr>
+      <tr>
+        <td colspan="8"><div class="summary-line"><span>Total No. Of Packets</span><span>${rows.length}</span></div></td>
+      </tr>
+      <tr>
+        <td colspan="8"><div class="summary-line"><span>Total COD Amount</span><span>${codTotal.toLocaleString('en-PK')}</span></div></td>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+</html>`;
+
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+
+      try {
+        if (iframe && w.addEventListener) {
+          w.addEventListener('afterprint', cleanupIframe, { once: true });
+        }
+      } catch (e) {
+        // ignore
+      }
+      setTimeout(() => {
+        try {
+          w.print();
+        } finally {
+          setTimeout(() => cleanupIframe(), 1500);
+        }
+      }, 400);
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to print loadsheet');
+      cleanupIframe();
+    } finally {
+      setIsPrintingLoadsheet(false);
+    }
   };
 
   const filteredBookPOOrders = useMemo(() => {
@@ -928,7 +1157,31 @@ const PO = () => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Parcel Records</span>
-            <span className="text-sm text-gray-500">{totalParcels} record(s) • {totalProductUnits} product(s)</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">{totalParcels} record(s) • {totalProductUnits} product(s)</span>
+              <select
+                value={String(loadsheetDay)}
+                onChange={(e) => setLoadsheetDay(e.target.value)}
+                className="px-2 py-1 border border-gray-300 rounded-lg text-sm"
+                title="Loadsheet day (uses Month filter if set)"
+              >
+                <option value="">Day</option>
+                {Array.from({ length: 31 }, (_, i) => String(i + 1)).map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handlePrintLoadsheet}
+                disabled={isPrintingLoadsheet}
+              >
+                <span className="flex items-center gap-2">
+                  <Printer size={16} />
+                  {isPrintingLoadsheet ? 'Loading...' : 'Print Loadsheet'}
+                </span>
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardBody className="p-0">
