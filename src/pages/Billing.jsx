@@ -21,7 +21,7 @@ import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Modal from '../components/Modal';
 import SearchBar from '../components/SearchBar';
 import { useToast } from '../context/ToastContext';
-import { createBill, createCustomer, getCustomerHistory, getCustomers, getProducts, getSellers } from '../services/api';
+import { createBill, createCustomer, getCustomerHistory, getCustomerLastProductPrice, getCustomers, getProducts, getSellers } from '../services/api';
 
 const Billing = () => {
   const [billItems, setBillItems] = useState([]);
@@ -60,6 +60,7 @@ const Billing = () => {
   const [selectedHistoryBill, setSelectedHistoryBill] = useState(null);
   const [offlineSearch, setOfflineSearch] = useState('');
   const [offlinePage, setOfflinePage] = useState(1);
+  const [lastPriceInfo, setLastPriceInfo] = useState(null);
 
   // Refs for click-outside detection
   const customerSearchRef = useRef(null);
@@ -267,6 +268,35 @@ const Billing = () => {
     () => products.find((p) => p._id === selectedProductId) || null,
     [products, selectedProductId]
   );
+
+  // Load last price this customer paid for the selected product (if any)
+  useEffect(() => {
+    setLastPriceInfo(null);
+
+    if (!selectedCustomer || !selectedProduct) return;
+
+    const customerId = selectedCustomer.id || selectedCustomer._id;
+    if (!customerId) return;
+
+    let cancelled = false;
+    const fetchLastPrice = async () => {
+      try {
+        const response = await getCustomerLastProductPrice(customerId, selectedProduct._id);
+        const data = response.data;
+        if (!cancelled && data?.found) {
+          setLastPriceInfo({ unitPrice: Number(data.unitPrice || 0), date: data.date });
+        }
+      } catch (err) {
+        console.error('Error fetching last price for customer/product:', err);
+      }
+    };
+
+    fetchLastPrice();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCustomer, selectedProduct]);
 
   // Respect navigation state for initial tab (e.g., from EditBill redirect)
   useEffect(() => {
@@ -768,6 +798,16 @@ const Billing = () => {
                         <span className="font-medium">Website:</span>{' '}
                         <span>Rs. {selectedProduct.websitePrice ?? 0}</span>
                       </div>
+                      {lastPriceInfo ? (
+                        <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
+                          <span className="font-medium">Last for this customer:</span>{' '}
+                          <span>Rs. {lastPriceInfo.unitPrice}</span>
+                        </div>
+                      ) : selectedCustomer ? (
+                        <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1">
+                          <span className="font-medium">First purchase for this customer</span>
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <div className="text-xs text-gray-500">

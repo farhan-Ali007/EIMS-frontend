@@ -21,6 +21,8 @@ const Expenses = lazy(()=>import('./pages/Expenses'));
 const Income = lazy(()=>import('./pages/Income'));
 const Returns = lazy(()=>import('./pages/Returns'));
 const PO = lazy(()=>import('./pages/PO'));
+const AdSpend = lazy(()=>import('./pages/AdSpend'));
+const LCS = lazy(()=>import('./pages/LCS'));
 const SellerDashboard = lazy(()=>import('./pages/SellerDashboard'));
 const SellerPasswordChange = lazy(()=>import('./pages/SellerPasswordChange'));
 const AdminManagement = lazy(()=>import('./pages/AdminManagement'));
@@ -59,7 +61,9 @@ const App = () => {
                 <Route path="expenses" element={<Expenses />} />
                 <Route path="income" element={<Income />} />
                 <Route path="returns" element={<Returns />} />
+                <Route path="adspend" element={<AdSpend />} />
                 <Route path="po" element={<PO />} />
+                <Route path="lcs" element={<LCS />} />
               </Route>
               
               {/* Seller Dashboard Route */}

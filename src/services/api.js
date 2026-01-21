@@ -95,6 +95,8 @@ export const updateBillStatus = (id, status) => api.patch(`/bills/${id}/status`,
 export const deleteBill = (id) => api.delete(`/bills/${id}`);
 export const getCustomerHistory = (customerId, params) => api.get(`/bills/customer/${customerId}/history`, { params });
 export const getBillingStats = () => api.get('/bills/stats/overview');
+export const getCustomerLastProductPrice = (customerId, productId) =>
+  api.get(`/bills/customer/${customerId}/last-price`, { params: { productId } });
 export const addBillPayment = (id, data) => api.post(`/bills/${id}/payments`, data);
 
 // Expenses
@@ -125,5 +127,20 @@ export const deleteParcel = (id) => api.delete(`/parcels/${id}`);
 export const getBookPOs = (params) => api.get('/book-po', { params });
 export const createBookPO = (data) => api.post('/book-po', data);
 export const updateBookPO = (id, data) => api.put(`/book-po/${id}`, data);
+
+// AdSpend
+export const getAdSpends = (params) => api.get('/adspend', { params });
+export const upsertAdSpend = (data) => api.post('/adspend', data);
+
+// Dispatch Records
+export const getDispatchRecords = (params) => api.get('/dispatch-records', { params });
+export const upsertDispatchRecord = (data) => api.post('/dispatch-records', data);
+
+// LCS
+export const getLcsBookedPacketLastStatus = (params) => api.get('/lcs/booked-packets/last-status', { params });
+
+// LCS Parcels (local DB)
+export const getLcsParcels = (params) => api.get('/lcs-parcels', { params });
+export const syncLcsParcels = (data) => api.post('/lcs-parcels/sync', data);
 
 export default api;

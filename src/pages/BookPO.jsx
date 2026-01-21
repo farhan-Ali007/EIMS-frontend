@@ -126,7 +126,6 @@ const BookPO = () => {
 
       const s = String(input)
         .normalize('NFKC')
-        // Remove invisible direction/formatting marks that often break Urdu matching
         .replace(/[\u200C\u200D\u200E\u200F\u061C\u202A-\u202E\u2066-\u2069]/g, '')
         // Remove Arabic diacritics
         .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')

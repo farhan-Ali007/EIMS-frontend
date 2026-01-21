@@ -16,7 +16,9 @@ import {
   RotateCcw,
   DollarSign,
   BookOpen,
-  Shield
+  Shield,
+  Megaphone,
+  PawPrint,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -48,7 +50,9 @@ const Layout = () => {
     { path: '/expenses', icon: Wallet, label: 'Expenses', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/income', icon: DollarSign, label: 'Income', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/returns', icon: RotateCcw, label: 'Returns', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/adspend', icon: Megaphone, label: 'AdSpend', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/po', icon: Truck, label: 'PO', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/lcs', icon: PawPrint, label: 'LCS', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/book-po', icon: BookOpen, label: 'Book PO', roles: ['admin', 'superadmin', 'manager'] },
   ];
 
