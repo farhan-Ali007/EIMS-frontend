@@ -19,6 +19,7 @@ import {
   Shield,
   Megaphone,
   PawPrint,
+  Boxes,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -43,6 +44,7 @@ const Layout = () => {
     { path: '/', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'superadmin'] },
     { path: '/admin-management', icon: Shield, label: 'Admins', roles: ['admin', 'superadmin'] },
     { path: '/products', icon: Package, label: 'Products', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/purchase-batches', icon: Boxes, label: 'Purchase Batches', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/sellers', icon: Users, label: 'Sellers', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/customers', icon: UserCircle, label: 'Customers', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/billing', icon: Receipt, label: 'Billing', roles: ['admin', 'superadmin', 'manager'] },
@@ -51,8 +53,8 @@ const Layout = () => {
     { path: '/income', icon: DollarSign, label: 'Income', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/returns', icon: RotateCcw, label: 'Returns', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/adspend', icon: Megaphone, label: 'AdSpend', roles: ['admin', 'superadmin', 'manager'] },
-    { path: '/po', icon: Truck, label: 'PO', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/lcs', icon: PawPrint, label: 'LCS', roles: ['admin', 'superadmin', 'manager'] },
+    { path: '/po', icon: Truck, label: 'PO', roles: ['admin', 'superadmin', 'manager'] },
     { path: '/book-po', icon: BookOpen, label: 'Book PO', roles: ['admin', 'superadmin', 'manager'] },
   ];
 
@@ -65,9 +67,9 @@ const Layout = () => {
     return 'Admin';
   };
 
-  useEffect(()=>{
-    window.scrollTo(0,0)
-  },[location.pathname])
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [location.pathname])
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -85,13 +87,13 @@ const Layout = () => {
             </div>
           )}
         </div>
-        
+
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto sidebar-scroll">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
-            const baseClasses = isActive 
-              ? 'bg-blue-600 shadow-lg text-white' 
+            const baseClasses = isActive
+              ? 'bg-blue-600 shadow-lg text-white'
               : 'text-slate-300 hover:bg-slate-700 hover:text-white';
 
             const layoutClasses = isSidebarOpen
@@ -127,7 +129,7 @@ const Layout = () => {
             );
           })}
         </nav>
-        
+
         {/* Sidebar Footer */}
         <div className="border-t border-slate-700">
           {isSidebarOpen ? (
@@ -138,7 +140,7 @@ const Layout = () => {
                 <p className="text-sm font-semibold text-white">{user?.username || getRoleLabel()}</p>
                 {/* <p className="text-xs text-slate-400 truncate">{user?.email || ''}</p> */}
               </div>
-              
+
               {/* Action Buttons */}
               <button
                 onClick={() => setPasswordModalOpen(true)}
@@ -216,9 +218,9 @@ const Layout = () => {
       </div>
 
       {/* Password Reset Modal */}
-      <PasswordResetModal 
-        isOpen={passwordModalOpen} 
-        onClose={() => setPasswordModalOpen(false)} 
+      <PasswordResetModal
+        isOpen={passwordModalOpen}
+        onClose={() => setPasswordModalOpen(false)}
       />
 
       {/* Collapsed sidebar tooltip (fixed, outside sidebar) */}

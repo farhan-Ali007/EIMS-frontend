@@ -1,31 +1,32 @@
-import { lazy } from 'react';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ToastProvider } from './context/ToastContext';
-const Login = lazy(()=>import('./pages/Login'));
-const Register = lazy(()=>import('./pages/Register'));
-const ForgotPassword = lazy(()=>import('./pages/ForgotPassword'));
-const ResetPassword = lazy(()=>import('./pages/ResetPassword'));
-const Dashboard = lazy(()=>import('./pages/Dashboard'));
-const Products = lazy(()=>import('./pages/Products'));
-const Sellers = lazy(()=>import('./pages/Sellers'));
-const Customers = lazy(()=>import('./pages/Customers'));
-const Billing = lazy(()=>import('./pages/Billing'));
-const EditBill = lazy(()=>import('./pages/EditBill'));
-const BookPO = lazy(()=>import('./pages/BookPO'));
-const Sales = lazy(()=>import('./pages/Sales'));
-const Expenses = lazy(()=>import('./pages/Expenses'));
-const Income = lazy(()=>import('./pages/Income'));
-const Returns = lazy(()=>import('./pages/Returns'));
-const PO = lazy(()=>import('./pages/PO'));
-const AdSpend = lazy(()=>import('./pages/AdSpend'));
-const LCS = lazy(()=>import('./pages/LCS'));
-const SellerDashboard = lazy(()=>import('./pages/SellerDashboard'));
-const SellerPasswordChange = lazy(()=>import('./pages/SellerPasswordChange'));
-const AdminManagement = lazy(()=>import('./pages/AdminManagement'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Products = lazy(() => import('./pages/Products'));
+const Sellers = lazy(() => import('./pages/Sellers'));
+const Customers = lazy(() => import('./pages/Customers'));
+const Billing = lazy(() => import('./pages/Billing'));
+const EditBill = lazy(() => import('./pages/EditBill'));
+const PurchaseBatches = lazy(() => import('./pages/PurchaseBatches'));
+const BookPO = lazy(() => import('./pages/BookPO'));
+const Sales = lazy(() => import('./pages/Sales'));
+const Expenses = lazy(() => import('./pages/Expenses'));
+const Income = lazy(() => import('./pages/Income'));
+const Returns = lazy(() => import('./pages/Returns'));
+const PO = lazy(() => import('./pages/PO'));
+const AdSpend = lazy(() => import('./pages/AdSpend'));
+const LCS = lazy(() => import('./pages/LCS'));
+const SellerDashboard = lazy(() => import('./pages/SellerDashboard'));
+const SellerPasswordChange = lazy(() => import('./pages/SellerPasswordChange'));
+const AdminManagement = lazy(() => import('./pages/AdminManagement'));
 
 const App = () => {
   return (
@@ -33,13 +34,20 @@ const App = () => {
       <AuthProvider>
         <ToastProvider>
           <NotificationProvider>
-            <Routes>
+            <Suspense
+              fallback={
+                <div className="w-full h-screen flex items-center justify-center text-sm text-gray-600">
+                  Loading...
+                </div>
+              }
+            >
+              <Routes>
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password/:token" element={<ResetPassword />} />
-              
+
               {/* Protected Routes - Admin / Manager area */}
               <Route
                 path="/"
@@ -56,6 +64,7 @@ const App = () => {
                 <Route path="customers" element={<Customers />} />
                 <Route path="billing" element={<Billing />} />
                 <Route path="billing/edit/:id" element={<EditBill />} />
+                <Route path="purchase-batches" element={<PurchaseBatches />} />
                 <Route path="book-po" element={<BookPO />} />
                 <Route path="sales" element={<Sales />} />
                 <Route path="expenses" element={<Expenses />} />
@@ -65,30 +74,31 @@ const App = () => {
                 <Route path="po" element={<PO />} />
                 <Route path="lcs" element={<LCS />} />
               </Route>
-              
+
               {/* Seller Dashboard Route */}
-              <Route 
-                path="/seller-dashboard" 
+              <Route
+                path="/seller-dashboard"
                 element={
                   <ProtectedRoute allowedRoles={['seller']}>
                     <SellerDashboard />
                   </ProtectedRoute>
-                } 
+                }
               />
-              
+
               {/* Seller Password Change Route */}
-              <Route 
-                path="/seller-change-password" 
+              <Route
+                path="/seller-change-password"
                 element={
                   <ProtectedRoute allowedRoles={['seller']}>
                     <SellerPasswordChange />
                   </ProtectedRoute>
-                } 
+                }
               />
-              
+
               {/* Catch all - redirect to dashboard */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </Suspense>
           </NotificationProvider>
         </ToastProvider>
       </AuthProvider>

@@ -2,8 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
+import Modal from '../components/Modal';
 import { useToast } from '../context/ToastContext';
-import { getLcsParcels, syncLcsParcels } from '../services/api';
+import { getLcsParcels, getProducts, syncLcsParcels, updateLcsParcelProducts } from '../services/api';
 
 const toLocalDateInputValue = (value) => {
   if (!value) return '';
@@ -44,6 +45,13 @@ const LCS = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [cityFilter, setCityFilter] = useState('');
   const [preset, setPreset] = useState('');
+
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [activeParcel, setActiveParcel] = useState(null);
+  const [draftProducts, setDraftProducts] = useState([]);
+  const [productSearch, setProductSearch] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
 
   const applyPreset = (preset) => {
     if (preset === 'today') {
@@ -87,6 +95,93 @@ const LCS = () => {
     enabled: Boolean(queryParams.from && queryParams.to),
     keepPreviousData: true,
   });
+
+  const { data: products = [] } = useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const res = await getProducts();
+      return res.data || [];
+    },
+  });
+
+  const openProductModal = (row) => {
+    setActiveParcel(row);
+    setDraftProducts(Array.isArray(row.products) ? row.products.map((p) => ({
+      productId: p.productId || p._id || undefined,
+      name: p.name || '',
+      quantity: p.quantity || 1,
+    })) : []);
+    setProductSearch('');
+    setSelectedProductId('');
+    setSelectedQuantity(1);
+    setProductModalOpen(true);
+  };
+
+  const closeProductModal = () => {
+    setProductModalOpen(false);
+    setActiveParcel(null);
+    setDraftProducts([]);
+    setProductSearch('');
+    setSelectedProductId('');
+    setSelectedQuantity(1);
+  };
+
+  const filteredProducts = useMemo(() => {
+    const term = productSearch.trim().toLowerCase();
+    if (!term) return products;
+    return products.filter((p) =>
+      p.name.toLowerCase().includes(term) ||
+      p.model.toLowerCase().includes(term) ||
+      p.category.toLowerCase().includes(term)
+    );
+  }, [products, productSearch]);
+
+  const handleAddDraftProduct = () => {
+    if (!selectedProductId) return;
+    const base = products.find((p) => p._id === selectedProductId);
+    if (!base) return;
+
+    const qty = Math.max(1, Number(selectedQuantity || 1) || 1);
+
+    setDraftProducts((prev) => {
+      const existingIndex = prev.findIndex((x) => String(x.productId) === String(selectedProductId));
+      if (existingIndex >= 0) {
+        const copy = [...prev];
+        copy[existingIndex] = {
+          ...copy[existingIndex],
+          quantity: (Number(copy[existingIndex].quantity || 0) || 0) + qty,
+        };
+        return copy;
+      }
+      return [
+        ...prev,
+        {
+          productId: base._id,
+          name: `${base.name} (${base.model})`,
+          quantity: qty,
+        },
+      ];
+    });
+
+    setSelectedProductId('');
+    setSelectedQuantity(1);
+  };
+
+  const handleRemoveDraftProduct = (index) => {
+    setDraftProducts((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveProducts = async () => {
+    if (!activeParcel) return;
+    try {
+      await updateLcsParcelProducts(activeParcel._id, { products: draftProducts });
+      await refetch();
+      closeProductModal();
+    } catch (error) {
+      console.error('Error saving products for LCS parcel:', error);
+      window.alert('Failed to save products for this parcel.');
+    }
+  };
 
   const { mutateAsync: doSync, isPending: isSyncing } = useMutation({
     mutationFn: async ({ from, to }) => {
@@ -203,7 +298,10 @@ const LCS = () => {
       const raw = row?.raw || {};
       const cn = row?.cn || raw.tracking_number || raw.trackingNumber || raw.booked_packet_cn || raw.bookedPacketCn || raw.CN || raw.cn || '';
       const orderId = row?.orderId || raw.booked_packet_order_id || raw.order_id || raw.orderId || '';
-      const product = row?.productDescription || raw.product_description || raw.productDescription || '';
+      const manualProducts = Array.isArray(row?.products) && row.products.length > 0
+        ? row.products.map((p) => `${p.name}${p.quantity && p.quantity !== 1 ? ` x${p.quantity}` : ''}`).join(', ')
+        : '';
+      const product = manualProducts || row?.productDescription || raw.product_description || raw.productDescription || '';
       const from = row?.originCity || raw.origin_city || '';
       const to = row?.destinationCity || raw.destination_city || '';
       const consignee = row?.consigneeName || raw.consignment_name_eng || raw.consignment_name || raw.consignee_name || '';
@@ -343,7 +441,7 @@ const LCS = () => {
           </CardTitle>
         </CardHeader>
         <CardBody className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[80vh] overflow-y-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
@@ -352,27 +450,31 @@ const LCS = () => {
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">CN</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">From</th>
+                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">COD</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">To</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Consignee</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">COD</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">From</th>
+                  <th className="px-4 sticky text-left right-0 py-2  bg-white text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {isLoading || isFetching ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-6 text-center text-gray-500 text-sm">Loading...</td>
+                    <td colSpan={11} className="px-4 py-6 text-center text-gray-500 text-sm">Loading...</td>
                   </tr>
-                ) : (filteredRows.length > 0 ? (
+                ) : filteredRows.length > 0 ? (
                   filteredRows.map((row) => {
                     const raw = row?.raw || {};
 
                     const bookingDate = toLocalDateInputValue(row?.bookingDate) || pick(raw, ['booking_date', 'bookingDate', 'booked_packet_date', 'bookedPacketDate']);
                     const cn = row?.cn || pick(raw, ['tracking_number', 'trackingNumber', 'booked_packet_cn', 'bookedPacketCn', 'CN', 'cn', 'cn_no', 'cn_number']);
                     const orderId = row?.orderId || pick(raw, ['booked_packet_order_id', 'order_id', 'orderId']);
-                    const product = row?.productDescription || pick(raw, ['product_description', 'productDescription']);
+                    const manualProducts = Array.isArray(row?.products) && row.products.length > 0
+                      ? row.products.map((p) => `${p.name}${p.quantity && p.quantity !== 1 ? ` x${p.quantity}` : ''}`).join(', ')
+                      : '';
+                    const product = manualProducts || row?.productDescription || pick(raw, ['product_description', 'productDescription']);
                     const from = row?.originCity || pick(raw, ['origin_city', 'originCity']);
                     const to = row?.destinationCity || pick(raw, ['destination_city', 'destinationCity']);
                     const consignee = row?.consigneeName || pick(raw, ['consignment_name_eng', 'consignment_name', 'consignee_name', 'consigneeName']);
@@ -386,29 +488,153 @@ const LCS = () => {
                         <td className="px-4 py-2 text-sm text-gray-800 whitespace-nowrap font-medium">{cn}</td>
                         <td className="px-4 py-2 text-sm text-gray-800 whitespace-nowrap">{orderId}</td>
                         <td className="px-4 py-2 text-sm text-gray-800">{product}</td>
-                        <td className="px-4 py-2 text-sm text-gray-800 whitespace-nowrap">{from}</td>
+                        <td className="px-4 py-2 text-sm text-gray-800 text-right whitespace-nowrap">{cod != null && String(cod) !== '' ? Number(cod || 0).toLocaleString('en-PK') : ''}</td>
                         <td className="px-4 py-2 text-sm text-gray-800 whitespace-nowrap">{to}</td>
                         <td className="px-4 py-2 text-sm text-gray-800 whitespace-nowrap">{consignee}</td>
                         <td className="px-4 py-2 text-sm text-gray-800 whitespace-nowrap">{phone}</td>
                         <td className="px-4 py-2 text-sm text-gray-800 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColor(status)}`}>
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${statusColor(status)}`}
+                          >
                             {status}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-sm text-gray-800 text-right whitespace-nowrap">{cod != null && String(cod) !== '' ? Number(cod || 0).toLocaleString('en-PK') : ''}</td>
+                        <td className="px-4 py-2 text-sm text-gray-800 whitespace-nowrap">{from}</td>
+                        <td className="px-4 py-2 text-sm text-left whitespace-nowrap sticky right-0 bg-white">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => openProductModal(row)}
+                          >
+                            Add / Edit Products
+                          </Button>
+                        </td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan={10} className="px-4 py-6 text-center text-gray-500 text-sm">No records found.</td>
+                    <td colSpan={11} className="px-4 py-6 text-center text-gray-500 text-sm">No records found.</td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
         </CardBody>
       </Card>
+
+      {/* Product mapping modal */}
+      <Modal isOpen={productModalOpen} onClose={closeProductModal} title="Assign Products to Parcel">
+        <div className="space-y-4">
+          <div className="text-sm text-gray-700">
+            {activeParcel && (
+              <>
+                <div><span className="font-semibold">CN:</span> {activeParcel.cn}</div>
+                <div><span className="font-semibold">Order ID:</span> {activeParcel.orderId}</div>
+              </>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">Search Product</label>
+            <input
+              type="text"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              placeholder="Search by name, model, or category..."
+            />
+            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg mt-1">
+              {filteredProducts.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-gray-500">No products found.</div>
+              ) : (
+                filteredProducts.slice(0, 50).map((p) => (
+                  <button
+                    key={p._id}
+                    type="button"
+                    onClick={() => setSelectedProductId(p._id)}
+                    className={`w-full text-left px-3 py-2 text-sm border-b last:border-b-0 hover:bg-gray-50 ${selectedProductId === p._id ? 'bg-blue-50' : ''}`}
+                  >
+                    <div className="font-medium text-gray-900">{p.name}</div>
+                    <div className="text-xs text-gray-600">Model: {p.model} • {p.category}</div>
+                    <div className="text-xs text-gray-500">Stock: {p.stock}</div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Selected Product</label>
+              <div className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 min-h-[40px] flex items-center">
+                {selectedProductId
+                  ? (() => {
+                    const p = products.find((x) => x._id === selectedProductId);
+                    return p ? `${p.name} (${p.model})` : 'Unknown product';
+                  })()
+                  : 'None selected'}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+              <input
+                type="number"
+                min="1"
+                value={selectedQuantity}
+                onChange={(e) => setSelectedQuantity(e.target.value)}
+                className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <Button type="button" onClick={handleAddDraftProduct} disabled={!selectedProductId}>
+                Add to List
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Assigned Products</span>
+              {draftProducts.length > 0 && (
+                <span className="text-xs text-gray-500">Total lines: {draftProducts.length}</span>
+              )}
+            </div>
+            {draftProducts.length === 0 ? (
+              <div className="px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500">
+                No products assigned yet. Use the search above to add products.
+              </div>
+            ) : (
+              <div className="border border-gray-200 rounded-lg divide-y max-h-40 overflow-y-auto">
+                {draftProducts.map((p, index) => (
+                  <div key={index} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <div>
+                      <div className="font-medium text-gray-900">{p.name}</div>
+                      <div className="text-xs text-gray-600">Qty: {p.quantity}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveDraftProduct(index)}
+                      className="text-xs text-red-600 hover:text-red-800"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 mt-4">
+            <Button type="button" variant="secondary" onClick={closeProductModal}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSaveProducts} disabled={!activeParcel}>
+              Save Products
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

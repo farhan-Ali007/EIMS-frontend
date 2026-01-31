@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getProducts, getParcels, createParcel, updateParcelStatus, updateParcel, deleteParcel, getBookPOs } from '../services/api';
+import { getProducts, getParcels, createParcel, updateParcelStatus, updateParcel, deleteParcel, getBookPOs, lookupBookPO } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
+import ScanInput from '../components/ScanInput';
 import { Package, Truck, MapPin, Hash, CheckCircle, Edit, Trash2, Printer } from 'lucide-react';
 
 const PO = () => {
@@ -31,6 +32,8 @@ const PO = () => {
   const [showBookPOSearch, setShowBookPOSearch] = useState(false);
   const [isBookPOModalOpen, setIsBookPOModalOpen] = useState(false);
   const [selectedBookPO, setSelectedBookPO] = useState(null);
+  const [bookPOScanValue, setBookPOScanValue] = useState('');
+  const [isBookPOScanLoading, setIsBookPOScanLoading] = useState(false);
   const [form, setForm] = useState({
     trackingNumber: '',
     customerName: '',
@@ -273,6 +276,9 @@ const PO = () => {
 
         const cod = Number(p?.codAmount || 0);
 
+        const trackingText = p?.barcodeValue || p?.trackingNumber || '';
+        const barcodeSvg = makeBarcodeSvg(trackingText);
+
         const productText = Array.isArray(p?.productsInfo) && p.productsInfo.length > 0
           ? p.productsInfo
             .map((x) => {
@@ -293,7 +299,10 @@ const PO = () => {
         return `
           <tr>
             <td class="center nowrap">${idx + 1}</td>
-            <td class="nowrap">${escapeHtml(p?.trackingNumber || '')}</td>
+            <td class="nowrap">
+              ${barcodeSvg ? `<div style="margin-bottom:4px;">${barcodeSvg}</div>` : ''}
+              <div>${escapeHtml(p?.trackingNumber || '')}</div>
+            </td>
             <td>${escapeHtml(p?.customerName || '')}</td>
             <td class="nowrap">${escapeHtml(p?.phone || '')}</td>
             <td>${escapeHtml(productText || '')}</td>
@@ -343,6 +352,46 @@ const PO = () => {
       cleanupIframe();
     } finally {
       setIsPrintingLoadsheet(false);
+    }
+  };
+
+  const handleScanBookPO = async () => {
+    const raw = String(bookPOScanValue || '').trim();
+    if (!raw) return;
+
+    try {
+      setIsBookPOScanLoading(true);
+      const res = await lookupBookPO(raw);
+      const order = res?.data;
+      if (!order) {
+        toast.error('Book PO not found');
+        return;
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        customerName: order.toName || prev.customerName,
+        phone: order.toPhone || prev.phone,
+        address: order.toAddress || prev.address,
+        codAmount:
+          prev.codAmount === '' || prev.codAmount == null
+            ? (order.amount != null ? String(order.amount) : prev.codAmount)
+            : prev.codAmount,
+      }));
+
+      toast.success('Book PO details applied');
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 404) {
+        toast.error('No Book PO found for this code');
+      } else {
+        console.error('Error looking up Book PO:', error);
+        const msg = error.response?.data?.message || 'Failed to lookup Book PO';
+        toast.error(msg);
+      }
+    } finally {
+      setIsBookPOScanLoading(false);
+      setBookPOScanValue('');
     }
   };
 
@@ -792,6 +841,7 @@ const PO = () => {
       setShowProductSearch(false);
       setSelectedProducts([]);
       setPrimaryQuantity(1);
+      setBookPOScanValue('');
       await queryClient.invalidateQueries({ queryKey: ['parcels'] });
     } catch (error) {
       console.error('Error creating parcel:', error);
@@ -833,6 +883,22 @@ const PO = () => {
           <CardBody className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Scan / Book PO code input */}
+                <div className="md:col-span-2">
+                  <ScanInput
+                    label="Scan Book PO Code (optional)"
+                    placeholder="Scan barcode or type Book PO code, then press Enter"
+                    helperText="Use the scanner to load Book PO details into the parcel form."
+                    disabled={isBookPOScanLoading}
+                    onScan={(value) => {
+                      setBookPOScanValue(String(value || ''));
+                      if (!isBookPOScanLoading) {
+                        handleScanBookPO();
+                      }
+                    }}
+                  />
+                </div>
+
                 {/* Product */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>

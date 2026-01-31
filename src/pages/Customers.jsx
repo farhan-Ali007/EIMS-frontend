@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCustomers, createCustomer, updateCustomer, deleteCustomer, getProducts, getSellers } from '../services/api';
+import { getCustomers, createCustomer, updateCustomer, deleteCustomer, getProducts, getSellers, getLcsParcelByCn } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -8,6 +8,7 @@ import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import { Plus, Edit, Trash2, UserCircle, Globe, MapPin, Download, Filter, Users, Monitor } from 'lucide-react';
 import { exportToExcel, formatForExport } from '../utils/exportUtils';
+import ScanInput from '../components/ScanInput';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,6 +27,7 @@ const Customers = () => {
     price: '',
     phone: '',
     address: '',
+    trackingNumber: '',
     product: '', // optional associated product
     productId: '',
     customDate: '',
@@ -40,6 +42,73 @@ const Customers = () => {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { role } = useAuth();
+
+  const handleScanLcsBarcode = async (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return;
+
+    try {
+      const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
+      const cn = parts[0] || '';
+      const codStr = parts[2] || '';
+      const parsedCod = codStr ? Number(codStr.replace(/[^0-9.]/g, '')) : NaN;
+      const codFromScan = Number.isFinite(parsedCod) && parsedCod > 0 ? parsedCod : undefined;
+
+      if (!cn) {
+        toast.error('Invalid scan: CN number is missing');
+        return;
+      }
+
+      // Set CN immediately; price will be set after we know COD (from scan or parcel)
+      setFormData((prev) => ({
+        ...prev,
+        trackingNumber: cn,
+      }));
+
+      try {
+        const res = await getLcsParcelByCn(cn);
+        const parcel = res.data;
+        if (!parcel) {
+          toast.error('Parcel not found for scanned CN');
+          return;
+        }
+
+        const consigneeName = parcel.consigneeName || '';
+        const consigneeAddress = parcel.consigneeAddress || '';
+        const consigneePhone = parcel.consigneePhone || '';
+        const bookingDate = parcel.bookingDate ? new Date(parcel.bookingDate) : null;
+        const bookingYmd = bookingDate && !Number.isNaN(bookingDate.getTime())
+          ? bookingDate.toISOString().slice(0, 10)
+          : '';
+
+        const parcelCodRaw = parcel.codValue != null ? Number(parcel.codValue) : NaN;
+        const codFromParcel = Number.isFinite(parcelCodRaw) ? parcelCodRaw : undefined;
+        const finalCod = codFromScan ?? codFromParcel;
+
+        setFormData((prev) => ({
+          ...prev,
+          name: prev.name || consigneeName || prev.name,
+          address: prev.address || consigneeAddress || prev.address,
+          phone: prev.phone || consigneePhone || prev.phone,
+          customDate: prev.customDate || bookingYmd || prev.customDate,
+          trackingNumber: cn,
+          price: finalCod !== undefined ? finalCod : prev.price,
+        }));
+
+        toast.success('Customer details loaded from LCS');
+      } catch (err) {
+        if (err?.response?.status === 404) {
+          toast.error('Parcel not found for scanned CN');
+        } else {
+          console.error('Error looking up LCS parcel by CN:', err);
+          toast.error('Failed to lookup LCS parcel');
+        }
+      }
+    } catch (error) {
+      console.error('Error processing scanned LCS barcode:', error);
+      toast.error('Failed to process scanned LCS barcode');
+    }
+  };
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
@@ -214,8 +283,10 @@ const Customers = () => {
             return;
           }
         }
-
         payload.productsInfo = productsInfo;
+      } else if (editingCustomer) {
+        // Explicitly clear productsInfo for existing customer when all products are removed
+        payload.productsInfo = [];
       }
 
       if (editingCustomer) {
@@ -304,7 +375,7 @@ const Customers = () => {
   const resetForm = () => {
     // Default to current tab type, or 'online' if 'all' is selected
     const defaultType = activeTab === 'all' ? 'online' : activeTab;
-    setFormData({ name: '', type: defaultType, price: '', phone: '', address: '', product: '', productId: '', customDate: '', seller: '' });
+    setFormData({ name: '', type: defaultType, price: '', phone: '', address: '', trackingNumber: '', product: '', productId: '', customDate: '', seller: '' });
     setProductSearch('');
     setShowProductSearch(false);
     setSelectedProducts([]);
@@ -676,6 +747,13 @@ const Customers = () => {
         title={editingCustomer ? 'Edit Customer' : 'Add New Customer'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          <ScanInput
+            label="LCS Scan (optional)"
+            placeholder="Scan LCS barcode (CN, city code, COD)"
+            helperText="Use the barcode scanner only; press Enter to trigger lookup."
+            onScan={handleScanLcsBarcode}
+          />
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
             <input
@@ -717,6 +795,17 @@ const Customers = () => {
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               rows="3"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tracking / CN (optional)</label>
+            <input
+              type="text"
+              value={formData.trackingNumber}
+              onChange={(e) => setFormData({ ...formData, trackingNumber: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter or scan CN number"
             />
           </div>
 

@@ -802,6 +802,11 @@ const Billing = () => {
                         <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
                           <span className="font-medium">Last for this customer:</span>{' '}
                           <span>Rs. {lastPriceInfo.unitPrice}</span>
+                          {lastPriceInfo.date && (
+                            <span className="ml-2 text-[11px] text-emerald-800/80">
+                              ({new Date(lastPriceInfo.date).toLocaleDateString()})
+                            </span>
+                          )}
                         </div>
                       ) : selectedCustomer ? (
                         <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded px-2 py-1">

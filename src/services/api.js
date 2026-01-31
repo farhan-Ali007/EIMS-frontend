@@ -127,6 +127,7 @@ export const deleteParcel = (id) => api.delete(`/parcels/${id}`);
 export const getBookPOs = (params) => api.get('/book-po', { params });
 export const createBookPO = (data) => api.post('/book-po', data);
 export const updateBookPO = (id, data) => api.put(`/book-po/${id}`, data);
+export const lookupBookPO = (value) => api.get(`/book-po/lookup/${encodeURIComponent(value)}`);
 
 // AdSpend
 export const getAdSpends = (params) => api.get('/adspend', { params });
@@ -136,11 +137,17 @@ export const upsertAdSpend = (data) => api.post('/adspend', data);
 export const getDispatchRecords = (params) => api.get('/dispatch-records', { params });
 export const upsertDispatchRecord = (data) => api.post('/dispatch-records', data);
 
+// Purchase Batches
+export const getPurchaseBatches = (params) => api.get('/purchase-batches', { params });
+export const createPurchaseBatch = (data) => api.post('/purchase-batches', data);
+
 // LCS
 export const getLcsBookedPacketLastStatus = (params) => api.get('/lcs/booked-packets/last-status', { params });
 
 // LCS Parcels (local DB)
 export const getLcsParcels = (params) => api.get('/lcs-parcels', { params });
 export const syncLcsParcels = (data) => api.post('/lcs-parcels/sync', data);
+export const updateLcsParcelProducts = (id, data) => api.patch(`/lcs-parcels/${id}/products`, data);
+export const getLcsParcelByCn = (cn) => api.get(`/lcs-parcels/by-cn/${encodeURIComponent(cn)}`);
 
 export default api;

@@ -5,7 +5,8 @@ import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import SearchBar from '../components/SearchBar';
 import { useToast } from '../context/ToastContext';
-import { Printer, CheckCircle, User, Phone, MapPin, Hash } from 'lucide-react';
+import { Printer, CheckCircle, User, Phone, MapPin } from 'lucide-react';
+import JsBarcode from 'jsbarcode';
 
 const BookPO = () => {
   const toast = useToast();
@@ -118,6 +119,26 @@ const BookPO = () => {
     setTimeout(() => {
       window.print();
     }, 0);
+  };
+
+  const makeBarcodeSvg = (value) => {
+    const text = String(value || '').trim();
+    if (!text) return '';
+
+    try {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      JsBarcode(svg, text, {
+        format: 'CODE128',
+        width: 0.8,
+        height: 25,
+        displayValue: true,
+        margin: 0,
+      });
+      return svg.outerHTML || '';
+    } catch (e) {
+      console.error('Error generating Book PO barcode:', e);
+      return '';
+    }
   };
 
   const filteredOrders = useMemo(() => {
@@ -363,59 +384,82 @@ const BookPO = () => {
         </Card>
       </div>
 
-      {/* Print layout */}
+      {/* Print Template */}
       <div className="book-po-print-root" aria-hidden="true">
-        {ordersToPrint.map((order, index) => (
-          <div
-            key={order._id}
-            className="book-po-chit relative border border-gray-400 p-6 mb-4 overflow-hidden"
-            style={{
-              pageBreakInside: 'avoid',
-              pageBreakAfter: index % 2 === 1 ? 'always' : 'auto',
-            }}
-          >
-            <div className="book-po-watermark">Etimad Mart</div>
+        {ordersToPrint.map((order, index) => {
+          const barcodeValue = order?.code || '';
+          const barcodeSvg = makeBarcodeSvg(barcodeValue);
 
-            <div className="relative z-10 text-lg leading-relaxed w-full">
-              {/* To section: heading on its own line, details below on right */}
-              <h3 className='text-center font-bold'>BU = 202</h3>
-              <div className="mb-4 urdu-text">
-                <div className="font-bold text-lg text-left">To</div>
-                <div className="mt-1 text-right urdu-text" dir="rtl">
-                  <div>نام: {order.toName}</div>
-                  <div>
-                    فون نمبر: <span dir="ltr">{order.toPhone}</span>
-                  </div>
-                  <div>پتہ: {order.toAddress}</div>
-                  <div dir="rtl">وزن: {order.weight} گرام</div>
-                  <div>
-                    رقم: Rs. {Number(order.amount || 0).toLocaleString('en-PK')}
+          return (
+            <div
+              key={order._id}
+              className="p-8 min-h-[29.7cm] border border-gray-300 book-po-chit"
+              style={{
+                pageBreakInside: 'avoid',
+                pageBreakAfter: index % 2 === 1 ? 'always' : 'auto',
+              }}
+            >
+              <div className="book-po-watermark">Etimad Mart</div>
+
+              <div className="relative z-10 text-lg leading-relaxed w-full">
+
+
+                <h3 className='text-center font-bold'>BU = 202</h3>
+
+                {/* To section: heading on its own line, details below on right */}
+                <div className="mb-4 urdu-text">
+                  <div className="font-bold text-lg text-left">To</div>
+                  <div className="mt-1 text-right urdu-text" dir="rtl">
+                    <div>نام: {order.toName}</div>
+                    <div>
+                      فون نمبر: <span dir="ltr">{order.toPhone}</span>
+                    </div>
+                    <div>پتہ: {order.toAddress}</div>
+                    <div dir="rtl">وزن: {order.weight} گرام</div>
+                    <div>
+                      رقم: Rs. {Number(order.amount || 0).toLocaleString('en-PK')}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <hr className="my-3 border-dashed" />
+                <hr className="my-3 border-dashed" />
 
-              {/* From section: heading on its own line, details below on right */}
-              <div className="mt-5 urdu-text">
-                <div className="font-bold text-lg text-left">From</div>
-                <div className="mt-1 text-right" dir="rtl">
-                  <div>اعتماد مارٹ</div>
-                  <div>
-                    فون نمبر: <span dir="ltr">0307-1111832</span>
-                  </div>
-                  <div>
-                    پتہ: HashStack Technologies  چاچڑاں روڈ ظاہر پیر، تحصیل خان پور، ضلع رحیم یار خان
-                  </div>
-                  <hr className='my-2'></hr>
-                  <div className='font-bold' dir="rtl">
-                    نوٹ: پارسل واپس بھیجنے سے پہلے <span dir="ltr" className='mx-1'>0307-1111832</span> پر رابطہ کرنے کی کوشش ضرورکریں -شکریہ
+                {/* From section: left column with barcode under From, right column with details */}
+                <div className="mt-5 urdu-text">
+                  <div className="font-bold text-lg text-left">From</div>
+                  <div className="mt-1 flex">
+                    {/* Left column: label then barcode under From */}
+                    <div className="w-24 flex flex-col items-start" dir="ltr">
+                      {barcodeSvg && (
+                        <>
+                          <span className="text-[10px] font-semibold mb-0.5 text-center">From Etimad</span>
+                          <div dangerouslySetInnerHTML={{ __html: barcodeSvg }} />
+                        </>
+                      )}
+                    </div>
+
+                    {/* Right column: sender details, line, and note */}
+                    <div className="flex-1 text-right ml-4" dir="rtl">
+                      <div>اعتماد مارٹ</div>
+                      <div>
+                        فون نمبر: <span dir="ltr">0307-1111832</span>
+                      </div>
+                      <div>
+                        پتہ: HashStack Technologies چاچڑاں روڈ ظاہر پیر، تحصیل خان پور، ضلع رحیم یار خان
+                      </div>
+
+                      <hr className="my-2 border-t border-gray-400" />
+
+                      <div className='font-bold' dir="rtl">
+                        نوٹ: پارسل واپس بھیجنے سے پہلے <span dir="ltr" className='mx-1'>0307-1111832</span> پر رابطہ کرنے کی کوشش ضرورکریں -شکریہ
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );
