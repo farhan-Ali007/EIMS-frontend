@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getProducts, getReturns, createReturn } from '../services/api';
+import { getProducts, getReturns, createReturn, getLcsParcelByCn } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import SearchBar from '../components/SearchBar';
 import SearchableSelect from '../components/SearchableSelect';
+import ScanInput from '../components/ScanInput';
 import { Package, RefreshCw, ArrowUpRight, AlertTriangle } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
@@ -22,6 +23,63 @@ const Returns = () => {
 
   const toast = useToast();
   const queryClient = useQueryClient();
+
+  const handleScanLcsReturn = async (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return;
+
+    try {
+      const parts = raw
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const cn = parts[0] || '';
+
+      if (!cn) {
+        toast.error('Invalid scan: CN number is missing');
+        return;
+      }
+
+      // Set CN on the form immediately
+      setFormData((prev) => ({
+        ...prev,
+        trackingId: cn
+      }));
+
+      try {
+        const res = await getLcsParcelByCn(cn);
+        const parcel = res.data;
+        if (!parcel) {
+          toast.error('Parcel not found for scanned CN');
+          return;
+        }
+
+        const consigneeName = parcel.consigneeName || '';
+        const parcelCodRaw = parcel.codValue != null ? Number(parcel.codValue) : NaN;
+        const codFromParcel = Number.isFinite(parcelCodRaw) && parcelCodRaw > 0 ? parcelCodRaw : undefined;
+
+        setFormData((prev) => ({
+          ...prev,
+          customerName: prev.customerName || consigneeName || prev.customerName,
+          trackingId: cn,
+          unitPrice: prev.unitPrice || (codFromParcel !== undefined ? codFromParcel : prev.unitPrice),
+          quantity: prev.quantity || prev.quantity || ''
+        }));
+
+        toast.success('Return form prefilled from LCS');
+      } catch (err) {
+        if (err?.response?.status === 404) {
+          toast.error('Parcel not found for scanned CN');
+        } else {
+          console.error('Error looking up LCS parcel by CN:', err);
+          toast.error('Failed to lookup LCS parcel');
+        }
+      }
+    } catch (error) {
+      console.error('Error processing scanned LCS barcode for return:', error);
+      toast.error('Failed to process scanned LCS barcode');
+    }
+  };
 
   const {
     data: products = [],
@@ -131,6 +189,7 @@ const Returns = () => {
                 Log returned products and automatically update stock levels
               </p>
             </div>
+            
             <div className="flex gap-2">
               <Button
                 variant="secondary"
@@ -150,6 +209,15 @@ const Returns = () => {
             </div>
           </div>
         </CardHeader>
+        
+      {/* Info Box */}
+      <div className="flex items-start gap-3 text-sm bg-amber-50 text-gray-600">
+        <AlertTriangle size={16} className="text-amber-500 ml-1 my-1" />
+        <p className="text-amber-500">
+          Every return recorded here automatically increases the stock of the selected product in the
+          inventory.
+        </p>
+      </div>
       </Card>
 
       {/* New Return Form */}
@@ -163,6 +231,12 @@ const Returns = () => {
           </CardHeader>
           <CardBody>
             <form onSubmit={handleSubmit} className="space-y-4">
+            <ScanInput
+              label="LCS Scan (optional)"
+              placeholder="Scan LCS barcode (CN, city code, COD) for this return"
+              helperText="Scan KP/CN to auto-fill tracking and customer details, then select product and submit."
+              onScan={handleScanLcsReturn}
+            />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
@@ -356,14 +430,6 @@ const Returns = () => {
         </CardBody>
       </Card>
 
-      {/* Info Box */}
-      <div className="flex items-start gap-3 text-sm text-gray-600">
-        <AlertTriangle size={18} className="text-amber-500 mt-0.5" />
-        <p>
-          Every return recorded here automatically increases the stock of the selected product in the
-          inventory.
-        </p>
-      </div>
     </div>
   );
 };

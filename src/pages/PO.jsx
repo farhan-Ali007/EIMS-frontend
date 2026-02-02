@@ -32,8 +32,9 @@ const PO = () => {
   const [showBookPOSearch, setShowBookPOSearch] = useState(false);
   const [isBookPOModalOpen, setIsBookPOModalOpen] = useState(false);
   const [selectedBookPO, setSelectedBookPO] = useState(null);
-  const [bookPOScanValue, setBookPOScanValue] = useState('');
   const [isBookPOScanLoading, setIsBookPOScanLoading] = useState(false);
+  const [showReturnScan, setShowReturnScan] = useState(false);
+  const [isReturnScanLoading, setIsReturnScanLoading] = useState(false);
   const [form, setForm] = useState({
     trackingNumber: '',
     customerName: '',
@@ -43,7 +44,8 @@ const PO = () => {
     parcelDate: today,
     status: 'processing',
     paymentStatus: 'unpaid',
-    notes: ''
+    notes: '',
+    barcodeValue: '',
   });
   const [filterTracking, setFilterTracking] = useState('');
   const [filterSearch, setFilterSearch] = useState('');
@@ -355,8 +357,41 @@ const PO = () => {
     }
   };
 
-  const handleScanBookPO = async () => {
-    const raw = String(bookPOScanValue || '').trim();
+  const handleScanReturnParcel = async (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return;
+
+    try {
+      setIsReturnScanLoading(true);
+
+      // Find parcel by tracking number using existing getParcels API
+      const res = await getParcels({ tracking: raw, page: 1, limit: 1 });
+      const payload = res?.data;
+      const list = Array.isArray(payload?.data) ? payload.data : [];
+
+      if (!list.length) {
+        toast.error('Parcel not found for scanned tracking');
+        return;
+      }
+
+      const parcel = list[0];
+      if (String(parcel.status || '').toLowerCase() === 'return') {
+        toast.success('This parcel is already marked as return');
+        return;
+      }
+
+      await handleUpdateStatus(parcel._id, 'status', 'return');
+    } catch (error) {
+      console.error('Error handling return parcel scan:', error);
+      const msg = error?.response?.data?.message || 'Failed to mark parcel as return';
+      toast.error(msg);
+    } finally {
+      setIsReturnScanLoading(false);
+    }
+  };
+
+  const handleScanBookPO = async (value) => {
+    const raw = String(value || '').trim();
     if (!raw) return;
 
     try {
@@ -377,6 +412,8 @@ const PO = () => {
           prev.codAmount === '' || prev.codAmount == null
             ? (order.amount != null ? String(order.amount) : prev.codAmount)
             : prev.codAmount,
+        // Store EM code into barcodeValue so prints and searches can use it
+        barcodeValue: order.code || prev.barcodeValue,
       }));
 
       toast.success('Book PO details applied');
@@ -391,7 +428,6 @@ const PO = () => {
       }
     } finally {
       setIsBookPOScanLoading(false);
-      setBookPOScanValue('');
     }
   };
 
@@ -601,7 +637,10 @@ const PO = () => {
   const handleUpdateStatus = async (parcelId, field, value) => {
     try {
       await updateParcelStatus(parcelId, { [field]: value });
-      await queryClient.invalidateQueries({ queryKey: ['parcels'] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['parcels'] }),
+        queryClient.invalidateQueries({ queryKey: ['products'] }),
+      ]);
       toast.success('Parcel updated');
     } catch (error) {
       console.error('Error updating parcel status:', error);
@@ -832,16 +871,16 @@ const PO = () => {
         parcelDate: form.parcelDate || today,
         status: form.status,
         paymentStatus: form.paymentStatus,
-        notes: form.notes.trim()
+        notes: form.notes.trim(),
+        barcodeValue: form.barcodeValue ? String(form.barcodeValue).trim() : undefined,
       });
       toast.success('Parcel recorded successfully');
-      setForm({ trackingNumber: '', customerName: '', phone: '', address: '', codAmount: '', parcelDate: today, status: 'processing', paymentStatus: 'unpaid', notes: '' });
+      setForm({ trackingNumber: '', customerName: '', phone: '', address: '', codAmount: '', parcelDate: today, status: 'processing', paymentStatus: 'unpaid', notes: '', barcodeValue: '' });
       setSelectedProductId('');
       setProductSearch('');
       setShowProductSearch(false);
       setSelectedProducts([]);
       setPrimaryQuantity(1);
-      setBookPOScanValue('');
       await queryClient.invalidateQueries({ queryKey: ['parcels'] });
     } catch (error) {
       console.error('Error creating parcel:', error);
@@ -862,14 +901,49 @@ const PO = () => {
         </div>
         <div className="flex gap-2">
           <Button
-            onClick={() => setShowForm((prev) => !prev)}
+            onClick={() => {
+              setShowForm((prev) => {
+                const next = !prev;
+                if (next) setShowReturnScan(false);
+                return next;
+              });
+            }}
             className="shadow-sm flex items-center gap-2"
           >
             <Package size={18} />
             {showForm ? 'Hide Form' : 'Add Parcel'}
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setShowReturnScan((prev) => {
+                const next = !prev;
+                if (next) setShowForm(false);
+                return next;
+              });
+            }}
+            className="shadow-sm flex items-center gap-2"
+          >
+            <Package size={18} />
+            {showReturnScan ? 'Hide Return Scan' : 'Add Return'}
+          </Button>
         </div>
       </div>
+
+      {showReturnScan && (
+        <Card className="shadow-sm border border-amber-300 bg-amber-50 rounded-2xl">
+          <CardBody className="space-y-2">
+            <ScanInput
+              label="Scan Returned PO Parcel"
+              placeholder="Scan or type tracking number, then press Enter"
+              helperText="This will find the existing PO parcel and mark its status as return."
+              disabled={isReturnScanLoading}
+              onScan={handleScanReturnParcel}
+            />
+          </CardBody>
+        </Card>
+      )}
 
       {/* Form */}
       {showForm && (
@@ -890,12 +964,7 @@ const PO = () => {
                     placeholder="Scan barcode or type Book PO code, then press Enter"
                     helperText="Use the scanner to load Book PO details into the parcel form."
                     disabled={isBookPOScanLoading}
-                    onScan={(value) => {
-                      setBookPOScanValue(String(value || ''));
-                      if (!isBookPOScanLoading) {
-                        handleScanBookPO();
-                      }
-                    }}
+                    onScan={handleScanBookPO}
                   />
                 </div>
 
