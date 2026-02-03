@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getProducts, createProduct, updateProduct, deleteProduct, getLowStockProducts, getCategories } from '../services/api';
+import { getProducts, createProduct, updateProduct, deleteProduct, getLowStockProducts, getCategories, addProductStockByBarcode, getPurchaseBatches } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
 import Modal from '../components/Modal';
@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import { useToast } from '../context/ToastContext';
 import { baseURL } from '../services/baseURL';
+import ScanInput from '../components/ScanInput';
 
 const Products = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,6 +31,7 @@ const Products = () => {
     reason: '',
     notes: ''
   });
+  const [activeBatchId, setActiveBatchId] = useState('');
   const itemsPerPage = 12;
   const [formData, setFormData] = useState({
     name: '',
@@ -39,7 +41,8 @@ const Products = () => {
     wholesalePrice: '',
     retailPrice: '',
     websitePrice: '',
-    stock: ''
+    stock: '',
+    barcode: ''
   });
   const [categories, setCategories] = useState([]); // local copy for CategoryManager integration
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
@@ -70,6 +73,14 @@ const Products = () => {
     }
   });
 
+  const { data: purchaseBatches = [] } = useQuery({
+    queryKey: ['purchase-batches-for-scan'],
+    queryFn: async () => {
+      const response = await getPurchaseBatches({ limit: 50 });
+      return response.data || [];
+    }
+  });
+
   useEffect(() => {
     setCategories(categoryData);
   }, [categoryData]);
@@ -96,6 +107,41 @@ const Products = () => {
     }
   };
 
+  const handleScanInventoryAdd = async (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return;
+
+    try {
+      const res = await addProductStockByBarcode({
+        barcode: raw,
+        batchId: activeBatchId || undefined,
+      });
+      const data = res?.data || {};
+      const product = data.product || {};
+      const productName = product.name || 'product';
+      const productModal = product.model || '';
+      const newStock = data.newStock;
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['products'] }),
+        queryClient.invalidateQueries({ queryKey: ['lowStockProducts'] })
+      ]);
+      if (Number.isFinite(newStock)) {
+        toast.success(`+1 stock for ${productName}-${productModal}. New stock: ${newStock}`);
+      } else {
+        toast.success(`Stock added via barcode scan for ${productName}`);
+      }
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 404) {
+        toast.error('No product found for this barcode');
+      } else {
+        console.error('Error adding stock via barcode scan:', error);
+        toast.error(error.response?.data?.message || 'Failed to add stock via barcode scan');
+      }
+    }
+  };
+
   const handleEdit = (product) => {
     setEditingProduct(product);
     setFormData({
@@ -106,7 +152,8 @@ const Products = () => {
       wholesalePrice: product.wholesalePrice,
       retailPrice: product.retailPrice,
       websitePrice: product.websitePrice,
-      stock: product.stock
+      stock: product.stock,
+      barcode: product.barcode || ''
     });
     setIsModalOpen(true);
   };
@@ -136,7 +183,8 @@ const Products = () => {
       wholesalePrice: '',
       retailPrice: '',
       websitePrice: '',
-      stock: ''
+      stock: '',
+      barcode: ''
     });
     setEditingProduct(null);
   };
@@ -170,7 +218,7 @@ const Products = () => {
     const source = showLowStockOnly ? lowStockProducts : products;
 
     return source.filter(product => {
-      const matchesSearch = 
+      const matchesSearch =
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.category.toLowerCase().includes(searchQuery.toLowerCase());
@@ -221,11 +269,11 @@ const Products = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${baseURL}/products/${selectedProduct._id}/add-stock`, 
+      await axios.post(`${baseURL}/products/${selectedProduct._id}/add-stock`,
         stockFormData,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
+
       // Refresh data
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['products'] }),
@@ -233,7 +281,7 @@ const Products = () => {
       ]);
       fetchStockHistory(selectedProduct._id);
       setStockFormData({ quantity: '', reason: '', notes: '' });
-      
+
       // Update selected product stock
       const updatedProduct = { ...selectedProduct, stock: selectedProduct.stock + parseInt(stockFormData.quantity) };
       setSelectedProduct(updatedProduct);
@@ -252,25 +300,63 @@ const Products = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-   {/* Low Stock Alert */}
+    <div className="space-y-5">
+      {/* Low Stock Alert (slim banner) */}
       {lowStockProducts.length > 0 && (
-        <Card className="border-l-4 border-rose-500">
-          <CardBody>
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="text-rose-500 flex-shrink-0" size={24} />
-              <div>
-                <h3 className="font-bold text-rose-700">Low Stock Alert!</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {lowStockProducts.length} product(s) are running low on stock
-                  {/* <span className="font-medium"> {lowStockProducts.map(p => p.name).join(', ')}</span> */}
-                </p>
+        <Card className="border-l-4 border-rose-300 bg-rose-50/70 shadow-sm">
+          <CardBody className="py-2">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="text-rose-500 flex-shrink-0" size={18} />
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full">
+                <div>
+                  <p className="text-sm font-semibold text-rose-700">Low Stock Alert</p>
+                  <p className="text-xs text-gray-600">
+                    {lowStockProducts.length} product(s) are running low on stock
+                  </p>
+                </div>
               </div>
             </div>
           </CardBody>
         </Card>
       )}
+
+      {/* Scan to Add Inventory */}
+      <Card className="shadow-sm border border-emerald-100 bg-white">
+        <CardBody className="px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <CardTitle className="text-sm font-semibold text-emerald-900 flex items-center gap-2">
+              <PackagePlus size={16} className="text-emerald-600" />
+              Scan to Add Inventory
+            </CardTitle>
+            <p className="text-xs text-emerald-800 mt-1 max-w-xl">
+              Scan a mapped product barcode to instantly add <span className="font-semibold">+1 unit</span> to stock and create a history entry.
+            </p>
+            <div className="mt-2 flex items-center gap-2 text-xs text-emerald-900">
+              <span className="font-semibold">Active Batch:</span>
+              <select
+                value={activeBatchId}
+                onChange={(e) => setActiveBatchId(e.target.value)}
+                className="px-2 py-1 border border-emerald-300 rounded-md bg-white text-xs focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+              >
+                <option value="">None (no batch)</option>
+                {purchaseBatches.map((b) => (
+                  <option key={b._id} value={b._id}>
+                    {(b.batchNumber || 'No batch #') + ' • ' + (b.supplierName || '')}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="w-full md:w-80">
+            <ScanInput
+              label="Inventory Scan (per scan +1)"
+              placeholder="Scan product barcode to add 1 to stock"
+              helperText="If a barcode is not yet linked to any product, first save it in the product form."
+              onScan={handleScanInventoryAdd}
+            />
+          </div>
+        </CardBody>
+      </Card>
       <Card className="shadow-lg border-0">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
           <div className="flex items-center justify-between">
@@ -282,11 +368,10 @@ const Products = () => {
               <button
                 type="button"
                 onClick={() => setShowLowStockOnly((prev) => !prev)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors shadow-sm ${
-                  showLowStockOnly
-                    ? 'bg-rose-50 border-rose-300 text-rose-700'
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-colors shadow-sm ${showLowStockOnly
+                  ? 'bg-rose-50 border-rose-300 text-rose-700'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
                 title="Toggle low stock filter"
               >
                 <AlertTriangle size={14} className={showLowStockOnly ? 'text-rose-500' : 'text-amber-500'} />
@@ -353,8 +438,8 @@ const Products = () => {
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-bold text-gray-800 flex items-center gap-2">
               <Package className="text-gray-600" size={20} />
-              {searchQuery || categoryFilter !== 'all' 
-                ? `Filtered Products (${filteredProducts.length})` 
+              {searchQuery || categoryFilter !== 'all'
+                ? `Filtered Products (${filteredProducts.length})`
                 : `All Products (${products.length})`}
             </CardTitle>
             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -382,11 +467,10 @@ const Products = () => {
                           <p className="text-xs text-gray-500">Model: {product.model}</p>
                         </div>
                       </div>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        product.stock <= 10 
-                          ? 'bg-rose-100 text-rose-700' 
-                          : 'bg-emerald-100 text-emerald-700'
-                      }`}>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${product.stock <= 10
+                        ? 'bg-rose-100 text-rose-700'
+                        : 'bg-emerald-100 text-emerald-700'
+                        }`}>
                         {product.stock}
                       </span>
                     </div>
@@ -398,7 +482,7 @@ const Products = () => {
                       <p className="text-xs text-gray-500 mb-1">Category</p>
                       <p className="text-sm font-medium text-gray-900">{product.category}</p>
                     </div>
-                    
+
                     <div>
                       <p className="text-xs text-gray-500 mb-2">Pricing</p>
                       <div className="space-y-1">
@@ -421,27 +505,27 @@ const Products = () => {
                   {/* Product Actions */}
                   <div className="p-4 border-t border-gray-100 bg-gray-50">
                     <div className="flex gap-2">
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => handleStockManagement(product)}
                         className="flex-1 text-xs"
                       >
                         <PackagePlus size={14} />
                         Stock
                       </Button>
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => handleEdit(product)}
                         className="flex-1 text-xs"
                       >
                         <Edit size={14} />
                         Edit
                       </Button>
-                      <Button 
-                        variant="danger" 
-                        size="sm" 
+                      <Button
+                        variant="danger"
+                        size="sm"
                         onClick={() => handleDelete(product._id)}
                         className="text-xs"
                       >
@@ -522,11 +606,10 @@ const Products = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
                     {paginatedProducts.length > 0 ? paginatedProducts.map((product, index) => (
-                      <tr 
-                        key={product._id} 
-                        className={`group hover:bg-blue-50 transition-all duration-200 ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                        }`}
+                      <tr
+                        key={product._id}
+                        className={`group hover:bg-blue-50 transition-all duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                          }`}
                       >
                         {/* Product Name */}
                         <td className="px-4 py-4">
@@ -590,13 +673,12 @@ const Products = () => {
                         {/* Stock */}
                         <td className="px-4 py-4 text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <span className={`inline-flex items-center justify-center w-12 h-12 rounded-xl text-lg font-bold shadow-md ${
-                              product.stock <= 10 
-                                ? 'bg-gradient-to-br from-rose-400 to-rose-600 text-white' 
-                                : product.stock <= 50
+                            <span className={`inline-flex items-center justify-center w-12 h-12 rounded-xl text-lg font-bold shadow-md ${product.stock <= 10
+                              ? 'bg-gradient-to-br from-rose-400 to-rose-600 text-white'
+                              : product.stock <= 50
                                 ? 'bg-gradient-to-br from-amber-400 to-amber-600 text-white'
                                 : 'bg-gradient-to-br from-emerald-400 to-emerald-600 text-white'
-                            }`}>
+                              }`}>
                               {product.stock}
                             </span>
                             <span className="text-xs text-gray-500">units</span>
@@ -677,29 +759,42 @@ const Products = () => {
         title={editingProduct ? 'Edit Product' : 'Add New Product'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
               <input
                 type="text"
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
               <input
-                type="text"
+                type="number"
                 required
-                value={formData.model}
-                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={formData.stock}
+                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Product Barcode (optional)</label>
+              <input
+                type="text"
+                value={formData.barcode}
+                onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                placeholder="Scan or type barcode for this product"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                This links the physical barcode to this product. Later, use the inventory scan above to add stock by scanning.
+              </p>
+            </div>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
             <div className="flex gap-2">
@@ -716,9 +811,9 @@ const Products = () => {
                   </option>
                 ))}
               </select>
-              <Button 
-                type="button" 
-                variant="secondary" 
+              <Button
+                type="button"
+                variant="secondary"
                 onClick={() => setCategoryManagerOpen(true)}
                 title="Manage Categories"
               >
@@ -729,7 +824,7 @@ const Products = () => {
               Don't see your category? Click the folder button to manage categories.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Original Price (PKR)</label>
@@ -742,7 +837,7 @@ const Products = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Wholesale Price (PKR)</label>
               <input
@@ -755,7 +850,7 @@ const Products = () => {
               />
             </div>
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Retail Price (PKR)</label>
@@ -768,7 +863,7 @@ const Products = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Website Price (PKR)</label>
               <input
@@ -781,7 +876,7 @@ const Products = () => {
               />
             </div>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Initial Stock</label>
             <input
@@ -792,14 +887,14 @@ const Products = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          
+
           <div className="flex gap-3 mt-6">
             <Button type="submit" className="flex-1">
               {editingProduct ? 'Update Product' : 'Create Product'}
             </Button>
-            <Button 
-              type="button" 
-              variant="secondary" 
+            <Button
+              type="button"
+              variant="secondary"
               onClick={() => { setIsModalOpen(false); resetForm(); }}
               className="flex-1"
             >
@@ -843,9 +938,8 @@ const Products = () => {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-500">Current Stock</p>
-                  <p className={`text-2xl font-bold ${
-                    selectedProduct.stock <= 10 ? 'text-rose-600' : 'text-emerald-600'
-                  }`}>
+                  <p className={`text-2xl font-bold ${selectedProduct.stock <= 10 ? 'text-rose-600' : 'text-emerald-600'
+                    }`}>
                     {selectedProduct.stock}
                   </p>
                   <p className="text-sm text-gray-500">units</p>
@@ -887,7 +981,7 @@ const Products = () => {
                     </select>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
                   <textarea
@@ -898,15 +992,15 @@ const Products = () => {
                     placeholder="Additional notes about this stock addition..."
                   />
                 </div>
-                
+
                 <div className="flex gap-3">
                   <Button type="submit" className="flex-1">
                     <PackagePlus size={20} />
                     Add Stock
                   </Button>
-                  <Button 
-                    type="button" 
-                    variant="secondary" 
+                  <Button
+                    type="button"
+                    variant="secondary"
                     onClick={() => setStockFormData({ quantity: '', reason: '', notes: '' })}
                   >
                     Clear
@@ -928,11 +1022,10 @@ const Products = () => {
                       <div key={index} className="p-4 hover:bg-gray-50">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                              entry.type === 'stock_in' 
-                                ? 'bg-emerald-100 text-emerald-600' 
-                                : 'bg-rose-100 text-rose-600'
-                            }`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${entry.type === 'stock_in'
+                              ? 'bg-emerald-100 text-emerald-600'
+                              : 'bg-rose-100 text-rose-600'
+                              }`}>
                               {entry.type === 'stock_in' ? <TrendingUp size={16} /> : <TrendingUp size={16} className="rotate-180" />}
                             </div>
                             <div>
@@ -944,9 +1037,8 @@ const Products = () => {
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className={`text-sm font-semibold ${
-                              entry.type === 'stock_in' ? 'text-emerald-600' : 'text-rose-600'
-                            }`}>
+                            <p className={`text-sm font-semibold ${entry.type === 'stock_in' ? 'text-emerald-600' : 'text-rose-600'
+                              }`}>
                               {entry.type === 'stock_in' ? '+' : '-'}{entry.quantity}
                             </p>
                             <p className="text-xs text-gray-500">

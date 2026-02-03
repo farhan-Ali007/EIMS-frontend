@@ -238,6 +238,24 @@ const Customers = () => {
         delete payload.customDate;
       }
 
+      // Prevent duplicate tracking numbers across customers
+      const tracking = String(payload.trackingNumber || '').trim();
+      if (tracking) {
+        const existingWithSameTracking = customers.find((c) => {
+          const t = String(c.trackingNumber || '').trim();
+          if (!t) return false;
+          if (t !== tracking) return false;
+          // Allow same record when editing the same customer
+          if (editingCustomer && String(c._id) === String(editingCustomer._id)) return false;
+          return true;
+        });
+
+        if (existingWithSameTracking) {
+          toast.error('This tracking / CN is already assigned to another customer');
+          return;
+        }
+      }
+
       const productsInfo = selectedProducts
         .map((x) => ({
           productId: x.productId,
@@ -349,6 +367,7 @@ const Customers = () => {
       address: customer.address || '',
       product: productNameForForm,
       productId: productIdForForm,
+      trackingNumber: customer.trackingNumber || '',
       customDate: customer.customDate
         ? new Date(customer.customDate).toISOString().slice(0, 10)
         : '',

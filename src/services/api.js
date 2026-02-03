@@ -45,6 +45,7 @@ export const createProduct = (data) => api.post('/products', data);
 export const updateProduct = (id, data) => api.put(`/products/${id}`, data);
 export const deleteProduct = (id) => api.delete(`/products/${id}`);
 export const getLowStockProducts = () => api.get('/products/low-stock');
+export const addProductStockByBarcode = (data) => api.post('/products/add-stock-by-barcode', data);
 
 // Sellers
 export const getSellers = () => api.get('/sellers');

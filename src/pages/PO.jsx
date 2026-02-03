@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import JsBarcode from 'jsbarcode';
 import { getProducts, getParcels, createParcel, updateParcelStatus, updateParcel, deleteParcel, getBookPOs, lookupBookPO } from '../services/api';
 import Card, { CardBody, CardHeader, CardTitle } from '../components/Card';
 import Button from '../components/Button';
@@ -9,6 +10,26 @@ import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
 import ScanInput from '../components/ScanInput';
 import { Package, Truck, MapPin, Hash, CheckCircle, Edit, Trash2, Printer } from 'lucide-react';
+
+const makeBarcodeSvg = (value) => {
+  const text = String(value || '').trim();
+  if (!text) return '';
+
+  try {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    JsBarcode(svg, text, {
+      format: 'CODE128',
+      width: 0.8,
+      height: 25,
+      displayValue: true,
+      margin: 0,
+    });
+    return svg.outerHTML || '';
+  } catch (e) {
+    console.error('Error generating PO loadsheet barcode:', e);
+    return '';
+  }
+};
 
 const PO = () => {
   const toast = useToast();
